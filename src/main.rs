@@ -1,8 +1,14 @@
+mod application;
 mod domain;
-use domain::library::LibraryState;
-
 mod infrastructure;
 
+use application::app_state::AppState;
+use infrastructure::config::Config;
+
 fn main() {
-    println!("Hello, world!");
+    let config = Config::new();
+
+    let app_state = AppState::new(config);
+
+    println!("AppState: {:#?}", app_state);
 }
