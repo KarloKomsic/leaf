@@ -3,8 +3,10 @@ mod domain;
 mod infrastructure;
 
 use application::app_state::AppState;
+use domain::library_collection::Library;
 use infrastructure::config::{Config, ConfigError};
 use infrastructure::paths::config_file_path;
+use infrastructure::scanner::scan_library;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
@@ -43,4 +45,16 @@ fn main() {
     }
 
     println!("Appstate: {:#?}", app_state);
+
+    if let crate::domain::library::LibraryState::Ready(lib_path) = &app_state.library_state {
+        let docs = scan_library(std::path::Path::new(lib_path.as_str()));
+
+        let library = Library::new(docs);
+
+        println!("Found {} documents:", library.document_count());
+
+        for doc in &library.documents {
+            println!(" - {}", doc.title);
+        }
+    }
 }
