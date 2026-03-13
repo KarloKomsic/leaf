@@ -19,6 +19,7 @@ fn main() {
     });
 
     let mut app_state = AppState::new(config);
+    app_state.load_library();
 
     if !app_state.is_library_configured() {
         loop {
@@ -44,16 +45,23 @@ fn main() {
         }
     }
 
-    println!("Appstate: {:#?}", app_state);
-
-    if let crate::domain::library::LibraryState::Ready(lib_path) = &app_state.library_state {
-        let docs = scan_library(std::path::Path::new(lib_path.as_str()));
-
-        let library = Library::new(docs);
-
+    if let Some(library) = &app_state.library {
         println!("Found {} documents:", library.document_count());
 
         for doc in &library.documents {
+            println!(" - {}", doc.title);
+        }
+
+        // Query search
+        println!("\nEnter a search query:");
+        let mut query = String::new();
+        io::stdin().read_line(&mut query).unwrap();
+        let query = query.trim(); // Trims the \n sign
+
+        // Results
+        let results = library.search(query);
+        println!("\nFound {} results:", results.len());
+        for doc in results {
             println!(" - {}", doc.title);
         }
     }

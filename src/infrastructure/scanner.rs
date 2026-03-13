@@ -10,14 +10,8 @@ pub fn scan_library(path: &Path) -> Vec<Document> {
             let path: PathBuf = entry.path();
 
             if let Some(ext) = path.extension() {
-                if ext == "pdf" {
-                    let title = path
-                        .file_stem()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string();
-
-                    documents.push(Document { title, path });
+                if ext.to_string_lossy().to_lowercase() == "pdf" {
+                    documents.push(Document::new(path))
                 }
             }
         }

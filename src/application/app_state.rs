@@ -1,10 +1,13 @@
 use crate::domain::library::{LibraryPath, LibraryState};
+use crate::domain::library_collection::Library;
 use crate::infrastructure::config::Config;
+use crate::infrastructure::scanner::scan_library;
 use std::path::Path;
 
 #[derive(Debug)]
 pub struct AppState {
     pub library_state: LibraryState,
+    pub library: Option<Library>,
     config: Config,
 }
 
@@ -26,6 +29,7 @@ impl AppState {
 
         Self {
             library_state,
+            library: None,
             config,
         }
     }
@@ -53,6 +57,13 @@ impl AppState {
             Ok(())
         } else {
             Err("Directory does not exist or is not a valid directory".to_string())
+        }
+    }
+
+    pub fn load_library(&mut self) {
+        if let LibraryState::Ready(lib_path) = &self.library_state {
+            let docs = scan_library(Path::new(lib_path.as_str()));
+            self.library = Some(Library::new(docs));
         }
     }
 }
