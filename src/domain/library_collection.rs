@@ -9,7 +9,14 @@ pub struct Library {
 }
 
 impl Library {
-    pub fn new(documents: Vec<Document>) -> Self {
+    pub fn new(mut documents: Vec<Document>) -> Self {
+        // Take two documents
+        // Compare their titles
+        // Sort alphabetically
+        // Ignore capitalization
+        documents.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
+
+        // Returns the vector/list of documents
         Self { documents }
     }
 
