@@ -2,6 +2,8 @@ use crate::domain::{
     self,
     document::{self, Document},
 };
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 use std::collections::HashSet;
 
 #[derive(Debug)]
@@ -40,5 +42,10 @@ impl Library {
             .iter() // Iterate through docs
             .filter(|doc| doc.title.to_lowercase().contains(&query)) // Filter titles with query
             .collect() // Collect results
+    }
+
+    pub fn random(&self) -> Option<&Document> {
+        let mut rng = thread_rng();
+        self.documents.choose(&mut rng)
     }
 }
