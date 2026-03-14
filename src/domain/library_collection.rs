@@ -2,6 +2,7 @@ use crate::domain::{
     self,
     document::{self, Document},
 };
+use std::collections::HashSet;
 
 #[derive(Debug)]
 pub struct Library {
@@ -10,11 +11,19 @@ pub struct Library {
 
 impl Library {
     pub fn new(mut documents: Vec<Document>) -> Self {
+        let mut seen = HashSet::new();
+
+        // Remove duplicates
+        documents.retain(|doc| {
+            let normalized = doc.normalized_title();
+            seen.insert(normalized)
+        });
+
         // Take two documents
         // Compare their titles
         // Sort alphabetically
         // Ignore capitalization
-        documents.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
+        documents.sort_by_key(|doc| doc.title.to_lowercase());
 
         // Returns the vector/list of documents
         Self { documents }
