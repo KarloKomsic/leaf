@@ -11,14 +11,16 @@ impl Document {
     fn clean_title(filename: &str) -> String {
         // Replace the .pdf with empty stuff so it makes it cleaner
         let mut title = filename.replace(".pdf", "");
-        // Replace _ with spaces
+
+        // Replace _, ., and - with spaces
         title = title.replace('_', " ");
-        // Replace "." with space
         title = title.replace('.', " ");
-        // Replace "-" with space
         title = title.replace('-', " ");
 
-        title
+        // Collapse multiple spaces into one
+        title = title.split_whitespace().collect::<Vec<_>>().join(" ");
+
+        title.trim().to_string()
     }
 
     // Normalize titles by removing stuff like (Z-Library) or (Anna's Archive)

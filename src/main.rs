@@ -2,14 +2,22 @@ mod application;
 mod domain;
 mod infrastructure;
 
+// Application layer import
 use application::app_state::AppState;
+
+// Domain layer import
 use domain::library_collection::Library;
+
+// Infrastructure layer import
 use infrastructure::config::{Config, ConfigError};
 use infrastructure::paths::config_file_path;
 use infrastructure::scanner::scan_library;
+
+// Imports from std
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
+use std::process::Command;
 
 fn main() {
     let config = Config::load().unwrap_or_else(|_| {
@@ -61,8 +69,30 @@ fn main() {
         // Results
         let results = library.search(query);
         println!("\nFound {} results:", results.len());
-        for doc in results {
-            println!(" - {}", doc.title);
+        for (i, doc) in results.iter().enumerate() {
+            println!(" {}. {}", i + 1, doc.title);
+        }
+
+        // Select result user wants
+        println!("\nEnter number to open book (or press Enter to skip):");
+        let mut selection = String::new();
+        std::io::stdin().read_line(&mut selection).unwrap();
+        let selection = selection.trim();
+
+        // Parse input
+        if let Ok(index) = selection.parse::<usize>() {
+            if index > 0 && index <= results.len() {
+                let doc = results[index - 1];
+                println!("Opening: {}", doc.title);
+
+                // Open the file
+                Command::new("xdg-open")
+                    .arg(&doc.path)
+                    .spawn()
+                    .expect("Failed to open file");
+            }
+        } else {
+            println!("Invalid selection.");
         }
     }
 }
