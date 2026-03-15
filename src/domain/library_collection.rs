@@ -50,11 +50,45 @@ impl Library {
             });
         }
 
-        // Check if result matches any
+        // Check if result matches
         match results {
-            Some(indices) => indices.iter().map(|&i| &self.documents[i]).collect(),
+            Some(indices) => {
+                let mut scored: Vec<(&Document, usize)> = indices
+                    .iter()
+                    .map(|&i| {
+                        let doc = &self.documents[i];
+                        let score = self.score_document(doc, query);
+                        (doc, score)
+                    })
+                    .collect();
+
+                scored.sort_by(|a, b| b.1.cmp(&a.1));
+
+                scored.into_iter().map(|(doc, _)| doc).collect()
+            }
+
             None => Vec::new(),
         }
+    }
+
+    // Determines points for document to base search results on
+    fn score_document(&self, doc: &Document, query: &str) -> usize {
+        let mut score = 0;
+
+        let title = doc.normalized_title();
+        let author = doc.author.clone().unwrap_or_default().to_lowercase();
+
+        for word in query.to_lowercase().split_whitespace() {
+            if title.contains(word) {
+                score += 3;
+            }
+
+            if author.contains(word) {
+                score += 2;
+            }
+        }
+
+        score
     }
 
     // Function for randomizing book choice
@@ -96,9 +130,13 @@ impl Library {
         let mut best_distance = usize::MAX;
 
         for word in self.index.keys() {
+            const MAX_DISTANCE: usize = 2;
+            if (word.len() as isize - query.len() as isize).abs() > 2 {
+                continue;
+            }
+
             let distance = levenshtein(query, word);
 
-            const MAX_DISTANCE: usize = 2;
             if distance < best_distance && distance <= MAX_DISTANCE {
                 best_distance = distance;
                 best_match = Some(word.clone());
