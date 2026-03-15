@@ -3,6 +3,7 @@ use std::path::PathBuf;
 #[derive(Debug)]
 pub struct Document {
     pub title: String,
+    pub author: Option<String>,
     pub path: PathBuf,
 }
 
@@ -30,20 +31,58 @@ impl Document {
         // Remove parenthesis and their contents
         while let Some(start) = title.find('(') {
             if let Some(end) = title[start..].find(')') {
-                title.replace_range(start..start + end + 1, "");
+                let end = start + end;
+                title.replace_range(start..=end, "");
             } else {
                 break;
             }
         }
 
-        title.trim().to_string()
+        title = title
+            .chars()
+            .map(|c| {
+                if c.is_alphanumeric() || c.is_whitespace() {
+                    c
+                } else {
+                    ' '
+                }
+            })
+            .collect();
+
+        title.split_whitespace().collect::<Vec<_>>().join(" ")
     }
 
     pub fn new(path: PathBuf) -> Self {
         let filename = path.file_name().unwrap().to_string_lossy().to_string();
 
-        let title = Self::clean_title(&filename);
+        let cleaned = Self::clean_title(&filename);
+        let author = Self::extract_author(&cleaned);
 
-        Self { title, path }
+        let title = cleaned
+            .split('(')
+            .next()
+            .unwrap_or(&cleaned)
+            .trim()
+            .to_string();
+
+        Self {
+            title,
+            author,
+            path,
+        }
+    }
+
+    fn extract_author(title: &str) -> Option<String> {
+        if let Some(start) = title.find('(') {
+            if let Some(end) = title[start..].find(')') {
+                let author = &title[start + 1..start + end];
+
+                if author.len() > 2 && !author.to_lowercase().contains("library") {
+                    return Some(author.trim().to_string());
+                }
+            }
+        }
+
+        None
     }
 }

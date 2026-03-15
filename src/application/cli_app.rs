@@ -1,6 +1,9 @@
 use crate::application::app_state::AppState;
+
 use crate::domain::document::Document;
-use std::io::{self, Write};
+use crate::domain::library_collection::Library;
+
+use std::io;
 use std::process::Command;
 
 pub struct CliApp {
@@ -54,7 +57,10 @@ impl CliApp {
             println!("Found {} documents:", library.document_count());
 
             for doc in &library.documents {
-                println!(" - {}", doc.title);
+                match &doc.author {
+                    Some(author) => println!(" - {} — {}", doc.title, author),
+                    None => println!("- {}", doc.title),
+                }
             }
         }
     }
@@ -62,78 +68,91 @@ impl CliApp {
     fn search_loop(&self) {
         if let Some(library) = &self.state.library {
             loop {
-                println!(
-                    "\nEnter a search query (alternatively, 'random' for random book query and 'exit' to exit the program):"
-                );
+                let query = self.read_query();
 
-                // Get query
-                let mut query = String::new();
-                std::io::stdin().read_line(&mut query).unwrap();
-                let query = query.trim();
-
-                // Empty query handling
                 if query.is_empty() {
                     println!("Please enter a search query.");
                     continue;
                 }
 
-                // Exit command
-                if query == "exit" || query == "quit" || query == "q" {
-                    println!("Goodbye!");
+                if self.handle_command(&query, library) {
                     break;
                 }
 
-                // Random book command
-                if query == "random" {
-                    if let Some(doc) = library.random() {
-                        println!("Opening random book: {}", doc.title);
+                self.handle_search(&query, library);
+            }
+        }
+    }
 
-                        open_file(doc);
-                    } else {
-                        println!("Library is empty.");
-                    }
+    fn read_query(&self) -> String {
+        println!(
+            "\nEnter a book name or author name (or 'random' for random book, or 'exit' for quitting the program):"
+        );
 
-                    continue;
-                }
+        let mut query = String::new();
+        io::stdin().read_line(&mut query).unwrap();
 
-                // Normal search
-                let results = library.search(query);
+        query.trim().to_string()
+    }
 
-                if results.is_empty() {
-                    println!("No documents found.");
-                    continue;
-                }
+    fn handle_command(&self, query: &str, library: &Library) -> bool {
+        match query {
+            "exit" | "quit" | "q" => {
+                println!("Goodbye!");
+                return true;
+            }
 
-                println!("\nFound {} results:", results.len());
-
-                for (i, doc) in results.iter().enumerate() {
-                    println!(" {}. {}", i + 1, doc.title);
-                }
-
-                println!("\nEnter number to open book (or press Enter to skip):");
-
-                let mut selection = String::new();
-                std::io::stdin().read_line(&mut selection).unwrap();
-                let selection = selection.trim();
-
-                if selection.is_empty() {
-                    continue;
-                }
-
-                match selection.parse::<usize>() {
-                    Ok(index) if index > 0 && index <= results.len() => {
-                        let doc = results[index - 1];
-
-                        println!("Opening: {}", doc.title);
-
-                        open_file(doc);
-                    }
-
-                    _ => {
-                        println!("Invalid selection.");
-                    }
+            "random" => {
+                if let Some(doc) = library.random() {
+                    println!("Opening random book: {}", doc.title);
+                    open_file(doc);
+                } else {
+                    println!("Library is empty.");
                 }
             }
+
+            _ => return false,
+        }
+
+        false
+    }
+
+    fn handle_search(&self, query: &str, library: &Library) {
+        let results = library.search(query);
+
+        if results.is_empty() {
+            println!("No documents found.");
+            return;
+        }
+
+        println!("\nFound {} results:", results.len());
+
+        for (i, doc) in results.iter().enumerate() {
+            println!(" {}. {}", i + 1, doc.title);
+        }
+
+        self.handle_selection(results);
+    }
+
+    fn handle_selection(&self, results: Vec<&Document>) {
+        println!("\nEnter number to open book (or press Enter to skip):");
+
+        let mut selection = String::new();
+        io::stdin().read_line(&mut selection).unwrap();
+        let selection = selection.trim();
+
+        if selection.is_empty() {
+            return;
+        }
+
+        match selection.parse::<usize>() {
+            Ok(index) if index > 0 && index <= results.len() => {
+                let doc = results[index - 1];
+                println!("Opening: {}", doc.title);
+                open_file(doc);
+            }
+
+            _ => println!("Invalid selection"),
         }
     }
 }

@@ -20,6 +20,7 @@ impl LibraryPath {
 }
 
 // Implementing methods for LibraryState
+#[allow(dead_code)]
 impl LibraryState {
     // Checking library state
     pub fn is_ready(&self) -> bool {

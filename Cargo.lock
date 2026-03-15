@@ -47,6 +47,7 @@ version = "0.1.0"
 dependencies = [
  "rand",
  "serde",
+ "strsim",
  "toml",
 ]
 
@@ -151,6 +152,12 @@ checksum = "f8bbf91e5a4d6315eee45e704372590b30e260ee83af6639d64557f51b067776"
 dependencies = [
  "serde_core",
 ]
+
+[[package]]
+name = "strsim"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "syn"
