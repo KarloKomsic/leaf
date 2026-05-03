@@ -4,22 +4,46 @@ use rand::thread_rng;
 use strsim::levenshtein;
 
 use std::collections::HashMap;
+use std::hash::Hash;
 
 #[derive(Debug)]
 pub struct Library {
     pub documents: Vec<Document>,
     index: HashMap<String, Vec<usize>>,
+    prefix_index: HashMap<String, Vec<usize>>,
 }
 
 impl Library {
     pub fn new(documents: Vec<Document>) -> Self {
         let index = Self::build_index(&documents);
+        let prefix_index = Self::build_prefix_index(&documents);
 
-        Self { documents, index }
+        Self {
+            documents,
+            index,
+            prefix_index,
+        }
     }
 
     pub fn document_count(&self) -> usize {
         self.documents.len()
+    }
+
+    fn is_subsequence(query: &str, text: &str) -> bool {
+        let mut query_chars = query.chars();
+        let mut current = query_chars.next();
+
+        for c in text.chars() {
+            if let Some(q) = current {
+                if c == q {
+                    current = query_chars.next();
+                } else {
+                    return true;
+                }
+            }
+        }
+
+        current.is_none()
     }
 
     // Searching function
@@ -41,7 +65,8 @@ impl Library {
             } else if let Some(similar) = self.find_similar_word(&word) {
                 self.index.get(&similar).cloned().unwrap_or_default()
             } else {
-                return Vec::new();
+                results = None;
+                break;
             };
 
             results = Some(match results {
@@ -67,7 +92,35 @@ impl Library {
                 scored.into_iter().map(|(doc, _)| doc).collect()
             }
 
-            None => Vec::new(),
+            None => {
+                let query_lower: String = query
+                    .to_lowercase()
+                    .chars()
+                    .filter(|c| !c.is_whitespace())
+                    .collect();
+
+                let mut scored = Vec::new();
+
+                for doc in &self.documents {
+                    let combined: String = format!(
+                        "{} {}",
+                        doc.normalized_title(),
+                        doc.author.clone().unwrap_or_default().to_lowercase()
+                    )
+                    .chars()
+                    .filter(|c| !c.is_whitespace())
+                    .collect();
+
+                    if Self::is_subsequence(&query_lower, &combined) {
+                        let score = self.score_document(doc, query);
+                        scored.push((doc, score));
+                    }
+                }
+
+                scored.sort_by(|a, b| b.1.cmp(&a.1));
+
+                scored.into_iter().map(|(doc, _)| doc).collect()
+            }
         }
     }
 
@@ -102,13 +155,52 @@ impl Library {
         let mut index = HashMap::new();
 
         for (i, doc) in documents.iter().enumerate() {
-            let combined = format!(
+            let combined: String = format!(
                 "{} {}",
                 doc.normalized_title(),
                 doc.author.as_deref().unwrap_or("").to_lowercase()
-            );
+            )
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect();
 
             for word in combined.split_whitespace() {
+                index
+                    .entry(word.to_string())
+                    .or_insert_with(Vec::new)
+                    .push(i);
+            }
+        }
+
+        index
+    }
+
+    fn build_prefix_index(documents: &[Document]) -> HashMap<String, Vec<usize>> {
+        let mut index = HashMap::new();
+
+        let stop_words = ["the", "and", "of", "to", "a", "in", "for", "on"];
+
+        for (i, doc) in documents.iter().enumerate() {
+            let combined = doc.normalized_title();
+
+            for word in combined.split_whitespace().take(1) {
+                if word.len() < 3 || stop_words.contains(&word) {
+                    continue;
+                }
+
+                for (byte_index, _) in word.char_indices() {
+                    if byte_index == 0 {
+                        continue;
+                    }
+
+                    let prefix = &word[..byte_index];
+
+                    index
+                        .entry(prefix.to_string())
+                        .or_insert_with(Vec::new)
+                        .push(i);
+                }
+
                 index
                     .entry(word.to_string())
                     .or_insert_with(Vec::new)
@@ -144,5 +236,20 @@ impl Library {
         }
 
         best_match
+    }
+
+    // Suggest results based on query search immediately
+    pub fn suggest(&self, query: &str) -> Vec<&Document> {
+        let query = query.to_lowercase();
+
+        if let Some(indices) = self.prefix_index.get(&query) {
+            indices
+                .iter()
+                .take(5)
+                .map(|&i| &self.documents[i])
+                .collect()
+        } else {
+            Vec::new()
+        }
     }
 }

@@ -79,6 +79,18 @@ impl CliApp {
                     break;
                 }
 
+                if query.len() >= 2 && query.len() <= 3 {
+                    let suggestions = library.suggest(&query);
+
+                    if !suggestions.is_empty() {
+                        println!("\nSuggestions:");
+                        for (i, doc) in suggestions.iter().enumerate() {
+                            println!(" {}. {}", i + 1, doc.title);
+                        }
+                        continue;
+                    }
+                }
+
                 self.handle_search(&query, library);
             }
         }
