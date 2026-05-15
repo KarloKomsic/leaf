@@ -24,7 +24,6 @@ pub enum MatchType {
     Exact,
     Fuzzy,
     Acronym,
-    Subsequence,
 }
 
 impl Library {
@@ -41,26 +40,6 @@ impl Library {
 
     pub fn document_count(&self) -> usize {
         self.documents.len()
-    }
-
-    fn subsequence_score(query: &str, text: &str) -> usize {
-        let mut score = 0;
-        let mut query_chars = query.chars();
-
-        let mut current = query_chars.next();
-
-        for c in text.chars() {
-            if let Some(q) = current {
-                if q == c {
-                    score += 1;
-                    current = query_chars.next();
-                }
-            } else {
-                break;
-            }
-        }
-
-        score
     }
 
     fn acronym(text: &str) -> String {
@@ -161,41 +140,25 @@ impl Library {
             }
 
             None => {
-                let query_lower: String = query
-                    .to_lowercase()
-                    .chars()
-                    .filter(|c| !c.is_whitespace())
-                    .collect();
-
                 let mut scored = Vec::new();
 
                 for doc in &self.documents {
-                    let title = doc.normalized_title().to_lowercase();
-                    let author = doc.author.clone().unwrap_or_default().to_lowercase();
-                    let combined = format!("{} {}", title, author);
+                    let score = self.score_document(doc, query);
 
-                    let compact_combined: String =
-                        combined.chars().filter(|c| !c.is_whitespace()).collect();
-
-                    let subseq_score = Self::subsequence_score(&compact_query, &compact_combined);
-
-                    if subseq_score < 2 {
-                        continue;
-                    }
-
-                    let similarity = subseq_score as f32 / compact_query.len() as f32;
-                    if similarity >= 0.95 {
-                        let score = self.score_document(doc, query) + subseq_score;
-
+                    if score > 0 {
                         scored.push(SearchResult {
                             document: doc,
                             score,
-                            match_type: MatchType::Subsequence,
+                            match_type: MatchType::Fuzzy,
                         });
                     }
                 }
 
-                scored.sort_by(|a, b| b.score.cmp(&a.score));
+                scored.sort_by(|a, b| {
+                    b.score
+                        .cmp(&a.score)
+                        .then_with(|| a.document.title.cmp(&b.document.title))
+                });
 
                 scored
             }
