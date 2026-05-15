@@ -1,7 +1,7 @@
 use crate::application::app_state::AppState;
 
 use crate::domain::document::Document;
-use crate::domain::library_collection::Library;
+use crate::domain::library_collection::{Library, SearchResult};
 
 use std::io;
 use std::process::Command;
@@ -139,14 +139,19 @@ impl CliApp {
 
         println!("\nFound {} results:", results.len());
 
-        for (i, doc) in results.iter().enumerate() {
-            println!(" {}. {}", i + 1, doc.title);
+        for (i, result) in results.iter().enumerate() {
+            println!(
+                " {}. {} [{:?}]",
+                i + 1,
+                result.document.title,
+                result.match_type
+            );
         }
 
         self.handle_selection(results);
     }
 
-    fn handle_selection(&self, results: Vec<&Document>) {
+    fn handle_selection(&self, results: Vec<SearchResult>) {
         println!("\nEnter number to open book (or press Enter to skip):");
 
         let mut selection = String::new();
@@ -159,7 +164,9 @@ impl CliApp {
 
         match selection.parse::<usize>() {
             Ok(index) if index > 0 && index <= results.len() => {
-                let doc = results[index - 1];
+                let result = &results[index - 1];
+                let doc = result.document;
+
                 println!("Opening: {}", doc.title);
                 open_file(doc);
             }
