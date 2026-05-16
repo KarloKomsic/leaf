@@ -1,9 +1,10 @@
 use crate::domain::document::Document;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use std::collections::{HashMap, HashSet};
 use strsim::levenshtein;
 
-use std::collections::HashMap;
+const STOP_WORDS: &[&str] = &["and", "the", "of", "to", "a", "in", "for", "on"];
 
 #[derive(Debug)]
 pub struct Library {
@@ -28,13 +29,10 @@ pub enum MatchType {
 
 impl Library {
     pub fn new(documents: Vec<Document>) -> Self {
-        let index = Self::build_index(&documents);
-        let prefix_index = Self::build_prefix_index(&documents);
-
         Self {
+            index: Self::build_index(&documents),
+            prefix_index: Self::build_prefix_index(&documents),
             documents,
-            index,
-            prefix_index,
         }
     }
 
@@ -42,23 +40,61 @@ impl Library {
         self.documents.len()
     }
 
-    fn acronym(text: &str) -> String {
-        let stop_words = ["and", "the", "of", "to", "a", "in"];
+    // =========================================================
+    // PUBLIC SEARCH API
+    // =========================================================
 
-        text.split_whitespace()
-            .filter(|word| !stop_words.contains(word))
-            .filter_map(|word| word.chars().next())
-            .collect::<String>()
-            .to_lowercase()
+    pub fn search(&self, query: &str) -> Vec<SearchResult<'_>> {
+        let normalized_query = Self::normalize(query);
+
+        if normalized_query.len() <= 2 {
+            return Vec::new();
+        }
+
+        // 1. Acronym search (highest priority)
+        let acronym_results = self.search_acronyms(&normalized_query);
+
+        if !acronym_results.is_empty() {
+            return acronym_results;
+        }
+
+        // 2. Indexed search
+        let indexed_results = self.search_indexed(query);
+
+        if !indexed_results.is_empty() {
+            return indexed_results;
+        }
+
+        // 3. Fallback search
+        self.search_fallback(query)
     }
 
-    // Searching function
-    pub fn search(&self, query: &str) -> Vec<SearchResult<'_>> {
-        let query_lower = query.to_lowercase();
+    pub fn suggest(&self, query: &str) -> Vec<&Document> {
+        let normalized_query = query.to_lowercase();
 
-        let compact_query: String = query_lower.chars().filter(|c| !c.is_whitespace()).collect();
+        self.prefix_index
+            .get(&normalized_query)
+            .map(|indices| {
+                indices
+                    .iter()
+                    .take(5)
+                    .map(|&i| &self.documents[i])
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
 
-        let mut acronym_results = Vec::new();
+    pub fn random(&self) -> Option<&Document> {
+        let mut rng = thread_rng();
+        self.documents.choose(&mut rng)
+    }
+
+    // =========================================================
+    // SEARCH IMPLEMENTATIONS
+    // =========================================================
+
+    fn search_acronyms(&self, query: &str) -> Vec<SearchResult<'_>> {
+        let mut results = Vec::new();
 
         for doc in &self.documents {
             let title = doc.normalized_title().to_lowercase();
@@ -67,8 +103,8 @@ impl Library {
             let title_acronym = Self::acronym(&title);
             let author_acronym = Self::acronym(&author);
 
-            if title_acronym == compact_query || author_acronym == compact_query {
-                acronym_results.push(SearchResult {
+            if title_acronym == query || author_acronym == query {
+                results.push(SearchResult {
                     document: doc,
                     score: 200,
                     match_type: MatchType::Acronym,
@@ -76,141 +112,178 @@ impl Library {
             }
         }
 
-        if !acronym_results.is_empty() {
-            return acronym_results;
-        }
+        results
+    }
 
-        if compact_query.len() <= 2 {
-            return Vec::new();
-        }
+    fn search_indexed(&self, query: &str) -> Vec<SearchResult<'_>> {
+        let words = Self::query_words(query);
 
-        // Parse word
-        let words: Vec<String> = query
-            .to_lowercase()
-            .split_whitespace()
-            .map(|w| w.to_string())
-            .collect();
+        let mut matched_indices: Option<HashSet<usize>> = None;
 
-        // Have a vector that may or may not have any values
-        let mut results: Option<Vec<usize>> = None;
-
-        // Go thru each word in query
         for word in words {
-            let indices = if let Some(indices) = self.index.get(&word) {
-                indices.clone()
-            } else if let Some(similar) = self.find_similar_word(&word) {
-                self.index.get(&similar).cloned().unwrap_or_default()
-            } else {
-                results = None;
-                break;
-            };
+            let current_indices = self.indices_for_word(&word);
 
-            results = Some(match results {
-                None => indices,
-                Some(prev) => prev.into_iter().filter(|i| indices.contains(i)).collect(),
+            if current_indices.is_empty() {
+                return Vec::new();
+            }
+
+            let current_set: HashSet<usize> = current_indices.into_iter().collect();
+
+            matched_indices = Some(match matched_indices {
+                None => current_set,
+                Some(previous) => previous.intersection(&current_set).copied().collect(),
             });
         }
 
-        // Check if result matches
-        match results {
-            Some(indices) => {
-                let mut scored: Vec<SearchResult<'_>> = indices
-                    .iter()
-                    .map(|&i| {
-                        let doc = &self.documents[i];
-                        let score = self.score_document(doc, query);
+        let Some(indices) = matched_indices else {
+            return Vec::new();
+        };
 
-                        let match_type = if doc.normalized_title().to_lowercase() == query_lower {
-                            MatchType::Exact
-                        } else {
-                            MatchType::Fuzzy
-                        };
+        let mut results: Vec<SearchResult<'_>> = indices
+            .into_iter()
+            .map(|index| self.create_search_result(index, query))
+            .collect();
 
-                        SearchResult {
-                            document: doc,
-                            score,
-                            match_type,
-                        }
-                    })
-                    .collect();
+        Self::sort_results(&mut results);
 
-                scored.sort_by(|a, b| b.score.cmp(&a.score));
+        results
+    }
 
-                scored
+    fn search_fallback(&self, query: &str) -> Vec<SearchResult<'_>> {
+        let mut results = Vec::new();
+
+        for (index, _) in self.documents.iter().enumerate() {
+            let result = self.create_search_result(index, query);
+
+            if result.score > 0 {
+                results.push(result);
             }
+        }
 
-            None => {
-                let mut scored = Vec::new();
+        Self::sort_results(&mut results);
 
-                for doc in &self.documents {
-                    let score = self.score_document(doc, query);
+        results
+    }
 
-                    if score > 0 {
-                        scored.push(SearchResult {
-                            document: doc,
-                            score,
-                            match_type: MatchType::Fuzzy,
-                        });
-                    }
-                }
+    // =========================================================
+    // SEARCH HELPERS
+    // =========================================================
 
-                scored.sort_by(|a, b| {
-                    b.score
-                        .cmp(&a.score)
-                        .then_with(|| a.document.title.cmp(&b.document.title))
-                });
+    fn create_search_result(&self, index: usize, query: &str) -> SearchResult<'_> {
+        let document = &self.documents[index];
 
-                scored
-            }
+        let score = self.score_document(document, query);
+
+        let match_type = if document.normalized_title().to_lowercase() == query.to_lowercase() {
+            MatchType::Exact
+        } else {
+            MatchType::Fuzzy
+        };
+
+        SearchResult {
+            document,
+            score,
+            match_type,
         }
     }
 
-    // Determines points for document to base search results on
+    fn indices_for_word(&self, word: &str) -> Vec<usize> {
+        if let Some(indices) = self.index.get(word) {
+            return indices.clone();
+        }
+
+        if let Some(similar_word) = self.find_similar_word(word) {
+            return self.index.get(&similar_word).cloned().unwrap_or_default();
+        }
+
+        Vec::new()
+    }
+
+    fn query_words(query: &str) -> Vec<String> {
+        query
+            .to_lowercase()
+            .split_whitespace()
+            .map(str::to_string)
+            .collect()
+    }
+
+    fn sort_results(results: &mut Vec<SearchResult<'_>>) {
+        results.sort_by(|a, b| {
+            b.score
+                .cmp(&a.score)
+                .then_with(|| a.document.title.cmp(&b.document.title))
+        });
+    }
+
+    // =========================================================
+    // SCORING
+    // =========================================================
+
     fn score_document(&self, doc: &Document, query: &str) -> usize {
         let mut score = 0;
 
         let title = doc.normalized_title().to_lowercase();
         let author = doc.author.clone().unwrap_or_default().to_lowercase();
 
-        let query_lower = query.to_lowercase();
+        let query = query.to_lowercase();
 
-        if title == query_lower {
+        if title == query {
             score += 100;
         }
 
-        if title.starts_with(&query_lower) {
+        if title.starts_with(&query) {
             score += 50;
         }
 
-        if title.contains(&query_lower) {
+        if title.split_whitespace().any(|word| word == query) {
+            score += 40;
+        }
+
+        if title.contains(&query) {
             score += 25;
         }
 
-        if author.contains(&query_lower) {
+        if author.contains(&query) {
             score += 10;
         }
 
         score
     }
 
-    // Function for randomizing book choice
-    pub fn random(&self) -> Option<&Document> {
-        let mut rng = thread_rng();
-        self.documents.choose(&mut rng)
+    // =========================================================
+    // TEXT UTILITIES
+    // =========================================================
+
+    fn normalize(text: &str) -> String {
+        text.to_lowercase()
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect()
     }
 
-    // Indexing for hash maps
+    fn acronym(text: &str) -> String {
+        text.split_whitespace()
+            .filter(|word| !STOP_WORDS.contains(word))
+            .filter_map(|word| word.chars().next())
+            .collect::<String>()
+            .to_lowercase()
+    }
+
+    // =========================================================
+    // INDEX BUILDING
+    // =========================================================
+
     fn build_index(documents: &[Document]) -> HashMap<String, Vec<usize>> {
         let mut index = HashMap::new();
 
         for (i, doc) in documents.iter().enumerate() {
-            let combined = format!(
+            let combined_text = format!(
                 "{} {}",
                 doc.normalized_title(),
                 doc.author.as_deref().unwrap_or("").to_lowercase()
             );
 
-            for word in combined.split_whitespace() {
+            for word in combined_text.split_whitespace() {
                 let entry = index.entry(word.to_string()).or_insert_with(Vec::new);
 
                 if !entry.contains(&i) {
@@ -225,13 +298,9 @@ impl Library {
     fn build_prefix_index(documents: &[Document]) -> HashMap<String, Vec<usize>> {
         let mut index = HashMap::new();
 
-        let stop_words = ["the", "and", "of", "to", "a", "in", "for", "on"];
-
         for (i, doc) in documents.iter().enumerate() {
-            let combined = doc.normalized_title();
-
-            for word in combined.to_lowercase().split_whitespace() {
-                if word.len() < 3 || stop_words.contains(&word) {
+            for word in doc.normalized_title().to_lowercase().split_whitespace() {
+                if word.len() < 3 || STOP_WORDS.contains(&word) {
                     continue;
                 }
 
@@ -260,30 +329,26 @@ impl Library {
         index
     }
 
-    // Fuzzy finding for similar word
-    // NOTE: This function uses the Levenshtein distance to calculate similarities:
-    // https://en.wikipedia.org/wiki/Levenshtein_distance
-    // TLDR: checks if distance between result and search query is less than or equal to certain
-    // metric
-    // If it is, we accept it
+    // =========================================================
+    // FUZZY SEARCH
+    // =========================================================
+
     fn find_similar_word(&self, query: &str) -> Option<String> {
         let mut best_match = None;
         let mut best_distance = usize::MAX;
 
-        for word in self.index.keys() {
-            let max_distance = match query.len() {
-                0..=4 => 1,
-                5..=8 => 2,
-                _ => 3,
-            };
+        let max_distance = Self::max_levenshtein_distance(query);
 
-            if (word.len() as isize - query.len() as isize).abs() > max_distance as isize {
+        for word in self.index.keys() {
+            let length_difference = (word.len() as isize - query.len() as isize).abs();
+
+            if length_difference > max_distance as isize {
                 continue;
             }
 
             let distance = levenshtein(query, word);
 
-            if distance < best_distance && distance <= max_distance {
+            if distance <= max_distance && distance < best_distance {
                 best_distance = distance;
                 best_match = Some(word.clone());
             }
@@ -292,18 +357,15 @@ impl Library {
         best_match
     }
 
-    // Suggest results based on query search immediately
-    pub fn suggest(&self, query: &str) -> Vec<&Document> {
-        let query = query.to_lowercase();
-
-        if let Some(indices) = self.prefix_index.get(&query) {
-            indices
-                .iter()
-                .take(5)
-                .map(|&i| &self.documents[i])
-                .collect()
-        } else {
-            Vec::new()
+    // NOTE: Here, we utilize the Levenshtein distance
+    // which measures the similarity of two strings.
+    // This is useful for fuzzy searching (i.e. saying 'atomik' instead of 'atomic').
+    // For more information, look here: https://www.geeksforgeeks.org/dsa/introduction-to-levenshtein-distance/
+    fn max_levenshtein_distance(query: &str) -> usize {
+        match query.len() {
+            0..=4 => 1,
+            5..=8 => 2,
+            _ => 3,
         }
     }
 }
