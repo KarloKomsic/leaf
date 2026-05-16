@@ -1,4 +1,6 @@
 use crate::domain::document::Document;
+use crate::infrastructure::metadata::extractor::extract_document;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -11,7 +13,9 @@ pub fn scan_library(path: &Path) -> Vec<Document> {
 
             if let Some(ext) = path.extension() {
                 if ext.to_string_lossy().to_lowercase() == "pdf" {
-                    documents.push(Document::new(path))
+                    if let Some(document) = extract_document(&path) {
+                        documents.push(document);
+                    }
                 }
             }
         }
