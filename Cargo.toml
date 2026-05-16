@@ -8,3 +8,4 @@ serde = { version = "1", features = ["derive"] }
 toml = "1.0.3"
 rand = "0.8"
 strsim = "0.11"
+lopdf = "0.40.0"
