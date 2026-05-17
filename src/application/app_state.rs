@@ -62,7 +62,8 @@ impl AppState {
 
     pub fn load_library(&mut self) {
         if let LibraryState::Ready(lib_path) = &self.library_state {
-            let docs = scan_library(Path::new(lib_path.as_str()));
+            let mut docs = scan_library(Path::new(lib_path.as_str()));
+
             self.library = Some(Library::new(docs));
         }
     }
