@@ -2,9 +2,16 @@ use std::path::Path;
 
 use crate::domain::{document::Document, metadata::Metadata};
 
-pub fn enrich_document(document: &mut Document) {
+pub fn enrich_document(document: &mut Document) -> bool {
     if let Some(metadata) = extract_metadata(&document.path) {
+        let had_title = metadata.title.is_some();
+        let had_author = metadata.author.is_some();
+
         apply_metadata(document, metadata);
+
+        had_title || had_author
+    } else {
+        false
     }
 }
 
@@ -13,6 +20,7 @@ fn extract_metadata(path: &Path) -> Option<Metadata> {
 
     match extension.as_str() {
         "pdf" => crate::infrastructure::metadata::pdf::extract_metadata(path),
+        "epub" => crate::infrastructure::metadata::epub::extract_metadata(path),
 
         _ => None,
     }
@@ -49,9 +57,12 @@ fn is_good_metadata(text: &str) -> bool {
     let lower = text.to_lowercase();
 
     !lower.is_empty()
-        && !lower.contains("pdfdrive")
+        &&     !lower.contains("pdfdrive")
         && !lower.contains("z-library")
         && !lower.contains("unknown")
+        && !lower.ends_with(".pdf")
+        && !lower.ends_with(".epub")
+        && text.len() > 3
 }
 
 fn clean_metadata(text: &str) -> String {

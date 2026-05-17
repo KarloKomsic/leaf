@@ -1,7 +1,7 @@
 use crate::application::app_state::AppState;
 
 use crate::domain::document::Document;
-use crate::domain::library_collection::{Library, SearchResult};
+use crate::domain::reading_status::ReadingStatus;
 
 use std::io;
 use std::process::Command;
@@ -15,6 +15,20 @@ fn open_file(doc: &Document) {
         .arg(&doc.path)
         .spawn()
         .expect("Failed to open file");
+}
+
+enum CmdResult {
+    Quit,
+    Handled,
+    NotFound,
+}
+
+fn status_symbol(status: &ReadingStatus) -> &'static str {
+    match status {
+        ReadingStatus::Unread => "[  ]",
+        ReadingStatus::CurrentlyReading => "[>]",
+        ReadingStatus::Completed => "[X]",
+    }
 }
 
 impl CliApp {
@@ -53,52 +67,80 @@ impl CliApp {
     }
 
     fn show_library(&self) {
-        if let Some(library) = &self.state.library {
-            println!("Found {} documents:", library.document_count());
+        let library = match &self.state.library {
+            Some(lib) => lib,
+            None => return,
+        };
 
-            for doc in &library.documents {
-                match &doc.author {
-                    Some(author) => println!(" - {} — {}", doc.title, author),
-                    None => println!("- {}", doc.title),
-                }
+        println!("Found {} documents:", library.document_count());
+
+        let mut unread = 0u32;
+        let mut reading = 0u32;
+        let mut completed = 0u32;
+
+        for doc in &library.documents {
+            let status = self.state.get_reading_status(&doc.path);
+            let sym = status_symbol(&status);
+
+            match status {
+                ReadingStatus::CurrentlyReading => reading += 1,
+                ReadingStatus::Completed => completed += 1,
+                ReadingStatus::Unread => unread += 1,
+            }
+
+            match &doc.author {
+                Some(author) => println!(" {} {} — {}", sym, doc.title, author),
+                None => println!(" {} {}", sym, doc.title),
             }
         }
+
+        println!(
+            "\nStats: {} unread, {} currently reading, {} completed",
+            unread, reading, completed
+        );
     }
 
-    fn search_loop(&self) {
-        if let Some(library) = &self.state.library {
-            loop {
-                let query = self.read_query();
+    fn search_loop(&mut self) {
+        loop {
+            let query = self.read_query();
 
-                if query.is_empty() {
-                    println!("Please enter a search query.");
-                    continue;
-                }
+            if query.is_empty() {
+                println!("Please enter a search query.");
+                continue;
+            }
 
-                if self.handle_command(&query, library) {
-                    break;
-                }
+            match self.handle_command(&query) {
+                CmdResult::Quit => break,
+                CmdResult::Handled => continue,
+                CmdResult::NotFound => {}
+            }
 
-                if query.len() >= 2 && query.len() <= 3 {
-                    let suggestions = library.suggest(&query);
-
+            if query.len() >= 2 && query.len() <= 3 {
+                let should_suggest = self.state.library.as_ref().map(|lib| {
+                    let suggestions = lib.suggest(&query);
                     if !suggestions.is_empty() {
                         println!("\nSuggestions:");
                         for (i, doc) in suggestions.iter().enumerate() {
                             println!(" {}. {}", i + 1, doc.title);
                         }
-                        continue;
+                        true
+                    } else {
+                        false
                     }
-                }
+                }).unwrap_or(false);
 
-                self.handle_search(&query, library);
+                if should_suggest {
+                    continue;
+                }
             }
+
+            self.handle_search(&query);
         }
     }
 
     fn read_query(&self) -> String {
         println!(
-            "\nEnter a book name or author name (or 'random' for random book, or 'exit' for quitting the program):"
+            "\nEnter a book name or author name (or 'random' for random book, 'list' to list all books, 'reading' for currently reading, 'completed' for completed, or 'exit' to quit):"
         );
 
         let mut query = String::new();
@@ -107,52 +149,125 @@ impl CliApp {
         query.trim().to_string()
     }
 
-    fn handle_command(&self, query: &str, library: &Library) -> bool {
+    fn handle_command(&mut self, query: &str) -> CmdResult {
         match query {
             "exit" | "quit" | "q" => {
                 println!("Goodbye!");
-                return true;
+                CmdResult::Quit
             }
 
             "random" => {
-                if let Some(doc) = library.random() {
-                    println!("Opening random book: {}", doc.title);
-                    open_file(doc);
-                } else {
-                    println!("Library is empty.");
-                }
+                let doc = match &self.state.library {
+                    Some(lib) => lib.random(),
+                    None => None,
+                };
+
+                let (path, title) = match doc {
+                    Some(d) => (d.path.clone(), d.title.clone()),
+                    None => {
+                        println!("Library is empty.");
+                        return CmdResult::Handled;
+                    }
+                };
+
+                println!("Opening random book: {}", title);
+                self.state.mark_started(&path);
+                let doc = Document {
+                    title,
+                    author: None,
+                    path,
+                };
+                open_file(&doc);
+                CmdResult::Handled
             }
 
-            _ => return false,
-        }
+            "list" => {
+                self.show_library();
+                CmdResult::Handled
+            }
 
-        false
+            "reading" => {
+                self.list_by_status(ReadingStatus::CurrentlyReading);
+                CmdResult::Handled
+            }
+
+            "completed" => {
+                self.list_by_status(ReadingStatus::Completed);
+                CmdResult::Handled
+            }
+
+            _ => CmdResult::NotFound,
+        }
     }
 
-    fn handle_search(&self, query: &str, library: &Library) {
-        let results = library.search(query);
+    fn list_by_status(&self, status: ReadingStatus) {
+        let library = match &self.state.library {
+            Some(lib) => lib,
+            None => return,
+        };
 
-        if results.is_empty() {
-            println!("No documents found.");
+        let label = match status {
+            ReadingStatus::CurrentlyReading => "Currently Reading",
+            ReadingStatus::Completed => "Completed",
+            ReadingStatus::Unread => "Unread",
+        };
+
+        let docs: Vec<&Document> = library
+            .documents
+            .iter()
+            .filter(|doc| self.state.get_reading_status(&doc.path) == status)
+            .collect();
+
+        if docs.is_empty() {
+            println!("No books in '{}' category.", label);
             return;
         }
 
-        println!("\nFound {} results:", results.len());
-
-        for (i, result) in results.iter().enumerate() {
-            println!(
-                " {}. {} [{:?}]",
-                i + 1,
-                result.document.title,
-                result.match_type
-            );
+        println!("\n--- {} ({}) ---", label, docs.len());
+        for doc in &docs {
+            match &doc.author {
+                Some(author) => println!(" {} — {}", doc.title, author),
+                None => println!(" {}", doc.title),
+            }
         }
-
-        self.handle_selection(results);
     }
 
-    fn handle_selection(&self, results: Vec<SearchResult>) {
-        println!("\nEnter number to open book (or press Enter to skip):");
+    fn handle_search(&mut self, query: &str) {
+        let titles: Vec<_> = {
+            let library = match &self.state.library {
+                Some(lib) => lib,
+                None => return,
+            };
+
+            let results = library.search(query);
+
+            if results.is_empty() {
+                println!("No documents found.");
+                return;
+            }
+
+            println!("\nFound {} results:", results.len());
+
+            for (i, result) in results.iter().enumerate() {
+                println!(
+                    " {}. {} [{:?}]",
+                    i + 1,
+                    result.document.title,
+                    result.match_type
+                );
+            }
+
+            results
+                .into_iter()
+                .map(|r| (r.document.path.clone(), r.document.title.clone()))
+                .collect::<Vec<_>>()
+        };
+
+        self.handle_selection(titles);
+    }
+
+    fn handle_selection(&mut self, results: Vec<(std::path::PathBuf, String)>) {
+        println!("\nEnter number to open book, or 'c <n>' to mark as completed (or press Enter to skip):");
 
         let mut selection = String::new();
         io::stdin().read_line(&mut selection).unwrap();
@@ -162,16 +277,36 @@ impl CliApp {
             return;
         }
 
+        if let Some(rest) = selection.strip_prefix("c ") {
+            if let Ok(index) = rest.parse::<usize>() {
+                if index > 0 && index <= results.len() {
+                    let (path, title) = &results[index - 1];
+
+                    self.state.mark_completed(path);
+                    println!("Marked as completed: {}", title);
+                    return;
+                }
+            }
+            println!("Invalid selection");
+            return;
+        }
+
         match selection.parse::<usize>() {
             Ok(index) if index > 0 && index <= results.len() => {
-                let result = &results[index - 1];
-                let doc = result.document;
+                let (path, title) = &results[index - 1];
 
-                println!("Opening: {}", doc.title);
-                open_file(doc);
+                println!("Opening: {}", title);
+                self.state.mark_started(path);
+                let doc = Document {
+                    title: title.clone(),
+                    author: None,
+                    path: path.clone(),
+                };
+                open_file(&doc);
             }
 
             _ => println!("Invalid selection"),
         }
     }
+
 }

@@ -1,7 +1,9 @@
 use crate::domain::library::{LibraryPath, LibraryState};
 use crate::domain::library_collection::Library;
+use crate::domain::reading_status::ReadingStatus;
 use crate::infrastructure::cache::metadata_cache::MetadataCache;
 use crate::infrastructure::config::Config;
+use crate::infrastructure::reading_status_store::ReadingStatusStore;
 use crate::infrastructure::scanner::scan_library;
 use std::path::Path;
 
@@ -11,6 +13,7 @@ pub struct AppState {
     pub library: Option<Library>,
     config: Config,
     pub metadata_cache: MetadataCache,
+    pub reading_status: ReadingStatusStore,
 }
 
 impl AppState {
@@ -30,16 +33,17 @@ impl AppState {
         };
 
         let metadata_cache = MetadataCache::load(Path::new("metadata_cache.json"));
+        let reading_status = ReadingStatusStore::load(Path::new("reading_status.json"));
 
         Self {
             library_state,
             library: None,
             config,
             metadata_cache,
+            reading_status,
         }
     }
 
-    // This lets the library ask if library needs to be configured/set
     pub fn is_library_configured(&self) -> bool {
         !matches!(self.library_state, LibraryState::NotConfigured)
     }
@@ -71,6 +75,21 @@ impl AppState {
 
             self.library = Some(Library::new(docs));
             self.metadata_cache.save(Path::new("metadata_cache.json"));
+            self.reading_status.save(Path::new("reading_status.json"));
         }
+    }
+
+    pub fn get_reading_status(&self, path: &Path) -> ReadingStatus {
+        self.reading_status.get(path)
+    }
+
+    pub fn mark_started(&mut self, path: &Path) {
+        self.reading_status.mark_started(path);
+        self.reading_status.save(Path::new("reading_status.json"));
+    }
+
+    pub fn mark_completed(&mut self, path: &Path) {
+        self.reading_status.mark_completed(path);
+        self.reading_status.save(Path::new("reading_status.json"));
     }
 }
