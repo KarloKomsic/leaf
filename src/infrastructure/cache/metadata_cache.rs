@@ -1,12 +1,22 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::domain::metadata::Metadata;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CachedEntry {
+    pub metadata: Metadata,
+
+    // Used to detect file changes
+    pub modified: u64,
+    pub size: u64,
+}
+
 #[derive(Debug, Default)]
 pub struct MetadataCache {
-    entries: HashMap<String, Metadata>,
+    entries: HashMap<String, CachedEntry>,
 }
 
 impl MetadataCache {
@@ -28,13 +38,13 @@ impl MetadataCache {
         }
     }
 
-    pub fn get(&self, path: &Path) -> Option<&Metadata> {
+    pub fn get(&self, path: &Path) -> Option<&CachedEntry> {
         let key = path.to_string_lossy().to_string();
         self.entries.get(&key)
     }
 
-    pub fn insert(&mut self, path: PathBuf, metadata: Metadata) {
+    pub fn insert(&mut self, path: PathBuf, entry: CachedEntry) {
         let key = path.to_string_lossy().to_string();
-        self.entries.insert(key, metadata);
+        self.entries.insert(key, entry);
     }
 }
