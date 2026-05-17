@@ -1,5 +1,6 @@
 use crate::domain::library::{LibraryPath, LibraryState};
 use crate::domain::library_collection::Library;
+use crate::infrastructure::cache::metadata_cache::MetadataCache;
 use crate::infrastructure::config::Config;
 use crate::infrastructure::scanner::scan_library;
 use std::path::Path;
@@ -9,6 +10,7 @@ pub struct AppState {
     pub library_state: LibraryState,
     pub library: Option<Library>,
     config: Config,
+    pub metadata_cache: MetadataCache,
 }
 
 impl AppState {
@@ -27,10 +29,13 @@ impl AppState {
             None => LibraryState::NotConfigured,
         };
 
+        let metadata_cache = MetadataCache::load(Path::new("metadata_cache.json"));
+
         Self {
             library_state,
             library: None,
             config,
+            metadata_cache,
         }
     }
 
@@ -62,9 +67,10 @@ impl AppState {
 
     pub fn load_library(&mut self) {
         if let LibraryState::Ready(lib_path) = &self.library_state {
-            let mut docs = scan_library(Path::new(lib_path.as_str()));
+            let docs = scan_library(Path::new(lib_path.as_str()), &mut self.metadata_cache);
 
             self.library = Some(Library::new(docs));
+            self.metadata_cache.save(Path::new("metadata_cache.json"));
         }
     }
 }

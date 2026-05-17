@@ -1,3 +1,4 @@
+use std::char::decode_utf16;
 use std::path::Path;
 
 use lopdf::{Dictionary, Document as PdfDocument};
@@ -19,8 +20,19 @@ pub fn extract_metadata(path: &Path) -> Option<Metadata> {
 }
 
 fn extract_string(dict: &Dictionary, key: &[u8]) -> Option<String> {
-    dict.get(key)
-        .ok()
-        .and_then(|obj| obj.as_str().ok())
-        .map(|bytes| String::from_utf8_lossy(bytes).trim().to_string())
+    let bytes = dict.get(key).ok()?.as_str().ok()?;
+
+    // UTF-16BE PDFs usually start with BOM FE FF
+    if bytes.starts_with(&[0xFE, 0xFF]) {
+        let utf16: Vec<u16> = bytes[2..]
+            .chunks_exact(2)
+            .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+            .collect();
+
+        let decoded: String = decode_utf16(utf16).filter_map(Result::ok).collect();
+
+        Some(decoded.trim().to_string())
+    } else {
+        Some(String::from_utf8_lossy(bytes).trim().to_string())
+    }
 }

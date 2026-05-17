@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Document {
     pub title: String,
     pub author: Option<String>,
@@ -33,5 +33,33 @@ impl Document {
             .collect();
 
         title.split_whitespace().collect::<Vec<_>>().join(" ")
+    }
+
+    pub fn from_path(path: PathBuf) -> Self {
+        let filename = path.file_stem().unwrap_or_default().to_string_lossy();
+
+        let title = filename
+            .replace('_', " ")
+            .replace('.', " ")
+            .replace('-', " ")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        Self {
+            title,
+            author: None,
+            path,
+        }
+    }
+
+    pub fn apply_metadata(&mut self, title: Option<String>, author: Option<String>) {
+        if let Some(title) = title {
+            self.title = title;
+        }
+
+        if let Some(author) = author {
+            self.author = Some(author);
+        }
     }
 }
