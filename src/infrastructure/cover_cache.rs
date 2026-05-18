@@ -1,3 +1,7 @@
+// Generates cover thumbnails for PDF and EPUB files and caches them
+// as JPEGs in a local cover_cache/ directory. If a cached cover
+// already exists, we skip generation entirely.
+
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::{Hash, Hasher};
@@ -40,6 +44,9 @@ fn generate_cover(path: &Path, output: &Path) -> Option<()> {
     }
 }
 
+// Uses pdftoppm (from poppler-utils) to render the first page as a
+// JPEG thumbnail. We rename pdftoppm's output to a predictable path
+// so it can be found on subsequent lookups.
 fn generate_pdf_cover(path: &Path, output: &Path) -> Option<()> {
     let prefix = output.with_extension("");
 
@@ -86,6 +93,8 @@ fn generate_pdf_cover(path: &Path, output: &Path) -> Option<()> {
     }
 }
 
+// Extracts the cover image from an EPUB by reading the OPF manifest
+// and finding the file that the metadata points to as the cover.
 fn generate_epub_cover(path: &Path, output: &Path) -> Option<()> {
     let file = fs::File::open(path).ok()?;
     let mut archive = zip::ZipArchive::new(file).ok()?;
@@ -109,6 +118,8 @@ fn generate_epub_cover(path: &Path, output: &Path) -> Option<()> {
     fs::write(output, &buf).ok()
 }
 
+// Reads the OPF file path from META-INF/container.xml, then returns
+// the OPF content along with its path for resolving relative hrefs.
 fn read_opf(archive: &mut zip::ZipArchive<fs::File>) -> Option<(String, Vec<u8>)> {
     let container = {
         let mut f = archive.by_name("META-INF/container.xml").ok()?;
@@ -134,6 +145,8 @@ fn read_opf(archive: &mut zip::ZipArchive<fs::File>) -> Option<(String, Vec<u8>)
     Some((opf_path, opf_bytes))
 }
 
+// Scans the OPF XML for a <meta> element with name="cover" and then
+// looks up the corresponding <item> element to get the image href.
 fn find_cover_href(opf: &str) -> Option<String> {
     let meta_needle = "name=\"cover\" content=\"";
     let meta_needle2 = "name='cover' content='";

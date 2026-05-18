@@ -1,3 +1,7 @@
+// Leaf is a book tracker that can run either as a terminal app or a
+// graphical window. By default you get the terminal, but passing
+// --gui opens the GTK interface instead.
+
 mod application;
 mod domain;
 mod gui;
@@ -7,11 +11,10 @@ use application::app_state::AppState;
 use application::cli_app::CliApp;
 use infrastructure::config::Config;
 
-// CLI-first — --gui opens the GTK window, otherwise we stay in the terminal.
-// The --gui flag is filtered before passing to GTK so it doesn't choke on it.
 fn main() {
     let use_gui = std::env::args().any(|a| a == "--gui");
 
+    // Load saved config, or create a fresh one if this is the first run
     let config = Config::load().unwrap_or_else(|_| {
         let config = Config::new();
         config.save().expect("Failed to save default config");

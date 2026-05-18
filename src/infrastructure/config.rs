@@ -1,3 +1,7 @@
+// Simple TOML-based config that stores the library directory path.
+// Lives in XDG_CONFIG_HOME/leaf/config.toml so it persists across
+// sessions without any manual setup.
+
 use crate::infrastructure::paths::config_file_path;
 use serde::{Deserialize, Serialize};
 use std::fs;

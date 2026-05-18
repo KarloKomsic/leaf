@@ -1,3 +1,6 @@
+// PDF metadata extraction with a fast path (pdfinfo) and a slow but
+// reliable fallback (lopdf) for unusual or malformed files.
+
 use std::char::decode_utf16;
 use std::path::Path;
 use std::process::Command;
@@ -7,12 +10,13 @@ use lopdf::{Dictionary, Document as PdfDocument};
 use crate::domain::metadata::Metadata;
 
 pub fn extract_metadata(path: &Path) -> Option<Metadata> {
-    // Try pdfinfo first. ~13ms per file instead of ~3.75s
+    // Try pdfinfo first: takes about 13ms per file versus 3.75s
+    // for lopdf, so it is well worth trying the external tool first.
     if let Some(metadata) = extract_via_pdfinfo(path) {
         return Some(metadata);
     }
 
-    // Fall back to lopdf (slow but handles unusual PDFs)
+    // Fall back to lopdf when pdfinfo is not available or fails
     extract_via_lopdf(path)
 }
 
@@ -59,7 +63,7 @@ fn extract_via_lopdf(path: &Path) -> Option<Metadata> {
 fn extract_string(dict: &Dictionary, key: &[u8]) -> Option<String> {
     let bytes = dict.get(key).ok()?.as_str().ok()?;
 
-    // UTF-16BE PDFs usually start with BOM FE FF
+    // PDFs encoded in UTF-16BE usually start with the BOM bytes FE FF
     if bytes.starts_with(&[0xFE, 0xFF]) {
         let utf16: Vec<u16> = bytes[2..]
             .chunks_exact(2)

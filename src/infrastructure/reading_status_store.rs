@@ -1,3 +1,7 @@
+// Persists reading progress (unread, in progress, completed) in its
+// own JSON file so re-scanning the library or clearing the metadata
+// cache does not reset the user's place.
+
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -5,8 +9,6 @@ use std::time::SystemTime;
 
 use crate::domain::reading_status::{ReadingStatus, ReadingStatusEntry};
 
-// Separate persistence layer so we can wipe the metadata cache without
-// losing the user's reading progress.
 #[derive(Debug, Default)]
 pub struct ReadingStatusStore {
     entries: HashMap<String, ReadingStatusEntry>,
@@ -49,6 +51,17 @@ impl ReadingStatusStore {
             ReadingStatusEntry {
                 status: ReadingStatus::Completed,
                 last_opened: now,
+            },
+        );
+    }
+
+    pub fn mark_uncompleted(&mut self, path: &Path) {
+        let key = path.to_string_lossy().to_string();
+        self.entries.insert(
+            key,
+            ReadingStatusEntry {
+                status: ReadingStatus::Unread,
+                last_opened: None,
             },
         );
     }

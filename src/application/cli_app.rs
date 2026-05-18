@@ -1,3 +1,6 @@
+// Terminal-based interface for Leaf. Lets you search, open, and
+// manage your books without a graphical environment.
+
 use crate::application::app_state::AppState;
 
 use crate::domain::document::Document;
@@ -23,7 +26,8 @@ enum CmdResult {
     NotFound,
 }
 
-// Show a simple text badge — [  ] unread, [>] reading, [X] done
+// Renders a small text badge that shows the reading status at a
+// glance: [  ] for unread, [>] for in progress, [X] for finished.
 fn status_symbol(status: &ReadingStatus) -> &'static str {
     match status {
         ReadingStatus::Unread => "[  ]",
@@ -43,6 +47,8 @@ impl CliApp {
         self.search_loop();
     }
 
+    // If there is no library directory saved yet, keep asking until
+    // the user provides one that actually exists on disk.
     fn ensure_library_configured(&mut self) {
         if !self.state.is_library_configured() {
             loop {
@@ -67,6 +73,8 @@ impl CliApp {
         }
     }
 
+    // Prints every book with its status badge and a summary count
+    // broken down by reading stage.
     fn show_library(&self) {
         let library = match &self.state.library {
             Some(lib) => lib,
@@ -101,6 +109,9 @@ impl CliApp {
         );
     }
 
+    // Main interactive loop: read a query, check for special commands
+    // (random, list, reading, completed, exit), and fall through to
+    // a full search if nothing else matched.
     fn search_loop(&mut self) {
         loop {
             let query = self.read_query();
@@ -234,6 +245,8 @@ impl CliApp {
         }
     }
 
+    // Runs the query through the library's search engine and shows
+    // ranked results with match types (exact, fuzzy, acronym).
     fn handle_search(&mut self, query: &str) {
         let titles: Vec<_> = {
             let library = match &self.state.library {
@@ -268,6 +281,8 @@ impl CliApp {
         self.handle_selection(titles);
     }
 
+    // After search results are shown, lets the user pick one to open
+    // or mark as completed by typing the result number.
     fn handle_selection(&mut self, results: Vec<(std::path::PathBuf, String)>) {
         println!("\nEnter number to open book, or 'c <n>' to mark as completed (or press Enter to skip):");
 

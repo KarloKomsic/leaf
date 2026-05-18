@@ -12,6 +12,7 @@ impl Document {
     pub fn normalized_title(&self) -> String {
         let mut title = self.title.to_lowercase();
 
+        // Remove anything inside parentheses, like (Series Name, #2)
         while let Some(start) = title.find('(') {
             if let Some(end) = title[start..].find(')') {
                 let end = start + end;
@@ -21,6 +22,8 @@ impl Document {
             }
         }
 
+        // Turn non-alphanumeric characters into spaces so they don't
+        // interfere with word-based search
         title = title
             .chars()
             .map(|c| {
@@ -35,10 +38,11 @@ impl Document {
         title.split_whitespace().collect::<Vec<_>>().join(" ")
     }
 
-    // Fallback when no metadata is available — just use the filename
+    // Fallback when no metadata is available: just use the filename
     pub fn from_path(path: PathBuf) -> Self {
         let filename = path.file_stem().unwrap_or_default().to_string_lossy();
 
+        // Convert underscores, dots and dashes to spaces for a readable title
         let title = filename
             .replace('_', " ")
             .replace('.', " ")

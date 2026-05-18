@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-// Three states: never opened, currently reading, finished.
-// Stored separately from metadata so re-scanning the library
-// doesn't reset your reading progress.
+// A book can be in one of three states: not touched yet, in progress,
+// or finished. These are kept in a separate file from the metadata
+// cache so re-scanning the library folder doesn't reset your place.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ReadingStatus {
     Unread,
@@ -16,6 +16,9 @@ impl Default for ReadingStatus {
     }
 }
 
+// Each book gets an entry that stores its current status and the
+// last time it was opened (as a unix timestamp). The timestamp is
+// mainly useful for sorting by recently opened.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReadingStatusEntry {
     pub status: ReadingStatus,

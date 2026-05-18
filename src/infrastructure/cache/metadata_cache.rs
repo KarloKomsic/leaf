@@ -1,8 +1,12 @@
+// Caches extracted title and author per file so we don't have to
+// re-read every PDF and EPUB on every launch. The cache is keyed by
+// absolute file path, and each entry stores the file's modified time
+// and size so we can detect when a file has changed.
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::UNIX_EPOCH;
 
 use crate::domain::metadata::Metadata;
 
@@ -13,8 +17,8 @@ pub struct CachedEntry {
     pub size: u64,
 }
 
-// Keys are absolute file paths; old-format numeric keys (from an earlier
-// iteration that used {size}-{modified} hashes) are silently dropped.
+// Old-format numeric keys (from an earlier version that used
+// {size}-{modified} hashes) are silently dropped during loading.
 #[derive(Debug, Default)]
 pub struct MetadataCache {
     entries: HashMap<String, CachedEntry>,
@@ -22,8 +26,6 @@ pub struct MetadataCache {
 
 impl MetadataCache {
     pub fn load(cache_path: &Path) -> Self {
-        println!("Loading cache from: {:?}", cache_path);
-
         let contents = fs::read_to_string(cache_path);
 
         if let Ok(json) = contents {
@@ -43,8 +45,6 @@ impl MetadataCache {
                     return Self::default();
                 }
 
-                println!("  Loaded {} valid cache entries", entries.len());
-
                 return Self { entries };
             }
         }
@@ -53,8 +53,6 @@ impl MetadataCache {
     }
 
     pub fn save(&self, cache_path: &Path) {
-        println!("Saving cache to: {:?}", cache_path);
-
         if let Ok(json) = serde_json::to_string_pretty(&self.entries) {
             let _ = fs::write(cache_path, json);
         }
@@ -71,26 +69,4 @@ impl MetadataCache {
     }
 
     // Checks whether a cached entry matches the current file on disk
-    pub fn is_valid(&self, path: &Path) -> bool {
-        let cached = match self.get(path) {
-            Some(entry) => entry,
-            None => return false,
-        };
-
-        let metadata = match fs::metadata(path) {
-            Ok(meta) => meta,
-            Err(_) => return false,
-        };
-
-        let modified = metadata
-            .modified()
-            .ok()
-            .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
-            .map(|duration| duration.as_secs())
-            .unwrap_or(0);
-
-        let size = metadata.len();
-
-        cached.modified == modified && cached.size == size
-    }
 }

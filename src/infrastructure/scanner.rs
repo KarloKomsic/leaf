@@ -1,3 +1,7 @@
+// Walks the library directory tree and builds a list of Document
+// objects. Metadata is pulled from the cache if available, otherwise
+// extracted from the file and saved for next time.
+
 use crate::domain::document::Document;
 use crate::infrastructure::cache::metadata_cache::MetadataCache;
 use crate::infrastructure::metadata::extractor::enrich_document;
@@ -8,8 +12,8 @@ use std::time::Instant;
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["pdf", "epub"];
 
-// Stack-based directory walk (no recursion limits). For each supported
-// file, we either reuse cached metadata or extract fresh and cache it.
+// Uses an explicit stack instead of recursion so we don't risk
+// blowing the stack on deeply nested directory trees.
 pub fn scan_library(path: &Path, cache: &mut MetadataCache) -> Vec<Document> {
     let start = Instant::now();
     let mut documents = Vec::new();

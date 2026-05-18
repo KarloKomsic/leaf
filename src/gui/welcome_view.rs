@@ -6,88 +6,110 @@ use gtk4::*;
 
 use crate::application::app_state::AppState;
 
-// First-run screen: pick a directory, hit confirm, and get dropped
-// into the library view after scanning.
-pub fn show(content: &Box, state: &Rc<RefCell<AppState>>) {
-    let title = Label::builder()
-        .label("Welcome to Leaf")
-        .margin_top(24)
-        .margin_bottom(12)
-        .build();
+pub fn show(
+    window: &ApplicationWindow,
+    content: &Box,
+    state: &Rc<RefCell<AppState>>,
+    header: &HeaderBar,
+    hamburger: &MenuButton,
+) {
+    let wrapper = Box::new(Orientation::Vertical, 0);
+    wrapper.set_halign(Align::Center);
+    wrapper.set_valign(Align::Start);
+    wrapper.add_css_class("welcome-wrapper");
+    wrapper.set_spacing(0);
 
-    content.append(&title);
+    let logo_bytes = include_bytes!("../../data/icons/hicolor/1024x1024/apps/com.leaf.app.png");
+    let loader = gdk_pixbuf::PixbufLoader::new();
+    loader.write(logo_bytes).unwrap();
+    loader.close().unwrap();
+    let pixbuf = loader.pixbuf().unwrap();
+    let scaled = pixbuf.scale_simple(128, 128, gdk_pixbuf::InterpType::Bilinear).unwrap();
+    let pixel_bytes = scaled.read_pixel_bytes();
+    let format = if scaled.has_alpha() {
+        gtk4::gdk::MemoryFormat::R8g8b8a8
+    } else {
+        gtk4::gdk::MemoryFormat::R8g8b8
+    };
+    let texture = gtk4::gdk::MemoryTexture::new(
+        scaled.width(),
+        scaled.height(),
+        format,
+        &pixel_bytes,
+        scaled.rowstride() as usize,
+    );
+    let logo = Picture::for_paintable(&texture);
+    logo.set_content_fit(ContentFit::Contain);
+    logo.set_margin_bottom(12);
+    wrapper.append(&logo);
+
+    let title = Label::builder()
+        .label("Leaf")
+        .css_classes(["welcome-title"])
+        .build();
+    wrapper.append(&title);
 
     let subtitle = Label::builder()
-        .label("Please select your library directory to get started:")
-        .margin_bottom(12)
+        .label("Your personal library manager")
+        .css_classes(["welcome-subtitle"])
         .build();
+    wrapper.append(&subtitle);
 
-    content.append(&subtitle);
-
-    let entry = Entry::builder()
-        .placeholder_text("Path to your books folder...")
-        .hexpand(true)
-        .margin_bottom(12)
-        .margin_start(48)
-        .margin_end(48)
+    let button = Button::builder()
+        .label("Set Library Directory")
+        .css_classes(["welcome-button"])
+        .halign(Align::Center)
         .build();
-
-    content.append(&entry);
-
-    let browse_btn = Button::with_label("Browse...");
-    let entry_b = entry.clone();
-
-    browse_btn.connect_clicked(move |_| {
+    let state_clone = state.clone();
+    let content_clone = content.clone();
+    let header_clone = header.clone();
+    let hamburger_clone = hamburger.clone();
+    let win = window.clone();
+    button.connect_clicked(move |_| {
         let dialog = FileDialog::new();
-        let entry = entry_b.clone();
-
-        dialog.open(
-            None::<&Window>,
+        let state = state_clone.clone();
+        let content = content_clone.clone();
+        let header = header_clone.clone();
+        let hamburger = hamburger_clone.clone();
+        let win_dialog = win.clone();
+        let win_callback = win.clone();
+        dialog.select_folder(
+            Some(&win_dialog),
             None::<&gio::Cancellable>,
             move |result| {
                 if let Ok(file) = result {
                     if let Some(path) = file.path() {
                         let path_str = path.to_string_lossy().to_string();
-                        entry.set_text(&path_str);
+
+                        if let Err(e) = state.borrow_mut().set_library_directory(path_str) {
+                            let alert = AlertDialog::builder()
+                                .message(&format!("Error: {}", e))
+                                .build();
+                            alert.show(Some(&win_callback));
+                            return;
+                        }
+
+                        state.borrow_mut().load_library();
+
+                        win_callback.set_resizable(true);
+                        win_callback.set_default_size(960, 720);
+                        win_callback.set_title(Some(&format!(
+                            "Leaf v{}",
+                            env!("CARGO_PKG_VERSION")
+                        )));
+                        header.pack_start(&hamburger);
+
+                        while let Some(child) = content.first_child() {
+                            content.remove(&child);
+                        }
+
+                        crate::gui::library_view::show(&content, &state);
                     }
                 }
             },
         );
     });
+    wrapper.append(&button);
 
-    content.append(&browse_btn);
-
-    let confirm_btn = Button::with_label("Set Library Directory");
-    confirm_btn.set_margin_top(12);
-
-    confirm_btn.connect_clicked({
-        let state = state.clone();
-        let entry = entry.clone();
-        let content = content.clone();
-
-        move |_| {
-            let path = entry.text().to_string();
-            if path.is_empty() {
-                return;
-            }
-
-            if let Err(e) = state.borrow_mut().set_library_directory(path) {
-                let dialog = AlertDialog::builder()
-                    .message(&format!("Error: {}", e))
-                    .build();
-                dialog.show(None::<&Window>);
-                return;
-            }
-
-            state.borrow_mut().load_library();
-
-            while let Some(child) = content.first_child() {
-                content.remove(&child);
-            }
-
-            crate::gui::library_view::show(&content, &state);
-        }
-    });
-
-    content.append(&confirm_btn);
+    content.append(&wrapper);
 }

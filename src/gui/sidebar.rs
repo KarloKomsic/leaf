@@ -4,6 +4,8 @@ use std::rc::Rc;
 use gtk4::prelude::*;
 use gtk4::*;
 
+// These match the three rows in the sidebar. The library view uses
+// them to decide which cards should be visible at any given time.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Category {
     All,
@@ -21,11 +23,12 @@ impl Category {
     }
 }
 
-// Three-row sidebar: All Books, Currently Reading, Completed.
-// Selection changes tell library_view which cards to show/hide.
+// Three-row sidebar that lets the user switch between seeing every
+// book, only the ones they are currently reading, or only the ones
+// they have marked as finished.
 pub struct Sidebar {
     pub container: ListBox,
-    active: Rc<Cell<Category>>,
+    pub active: Rc<Cell<Category>>,
 }
 
 impl Sidebar {
@@ -48,6 +51,7 @@ impl Sidebar {
             container.append(&row);
         }
 
+        // Select the first row (All Books) by default
         if let Some(first) = container.first_child() {
             container.select_row(first.downcast::<ListBoxRow>().ok().as_ref());
         }
@@ -71,7 +75,4 @@ impl Sidebar {
         Self { container, active }
     }
 
-    pub fn active_category(&self) -> Category {
-        self.active.get()
-    }
 }

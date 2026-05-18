@@ -3,12 +3,14 @@ use crate::domain::library_collection::Library;
 use crate::domain::reading_status::ReadingStatus;
 use crate::infrastructure::cache::metadata_cache::MetadataCache;
 use crate::infrastructure::config::Config;
+use crate::infrastructure::paths;
 use crate::infrastructure::reading_status_store::ReadingStatusStore;
 use crate::infrastructure::scanner::scan_library;
 use std::path::Path;
 
-// Single source of truth for both CLI and GUI. Ties together the metadata
-// cache and reading status store so a re-scan doesn't overwrite your place.
+// AppState ties together the config, the scanned library, cached
+// metadata, and reading progress so both the CLI and GUI can share
+// the same logic without duplicating anything.
 #[derive(Debug)]
 pub struct AppState {
     pub library_state: LibraryState,
@@ -20,6 +22,7 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(config: Config) -> Self {
+        // Check whether the saved library directory still exists on disk
         let library_state = match &config.library_directory {
             Some(path) => {
                 let path_ref = Path::new(path);
@@ -34,8 +37,8 @@ impl AppState {
             None => LibraryState::NotConfigured,
         };
 
-        let metadata_cache = MetadataCache::load(Path::new("metadata_cache.json"));
-        let reading_status = ReadingStatusStore::load(Path::new("reading_status.json"));
+        let metadata_cache = MetadataCache::load(&paths::data_file_path("metadata_cache.json"));
+        let reading_status = ReadingStatusStore::load(&paths::data_file_path("reading_status.json"));
 
         Self {
             library_state,
@@ -76,8 +79,8 @@ impl AppState {
             let docs = scan_library(Path::new(lib_path.as_str()), &mut self.metadata_cache);
 
             self.library = Some(Library::new(docs));
-            self.metadata_cache.save(Path::new("metadata_cache.json"));
-            self.reading_status.save(Path::new("reading_status.json"));
+            self.metadata_cache.save(&paths::data_file_path("metadata_cache.json"));
+            self.reading_status.save(&paths::data_file_path("reading_status.json"));
         }
     }
 
@@ -87,11 +90,16 @@ impl AppState {
 
     pub fn mark_started(&mut self, path: &Path) {
         self.reading_status.mark_started(path);
-        self.reading_status.save(Path::new("reading_status.json"));
+        self.reading_status.save(&paths::data_file_path("reading_status.json"));
     }
 
     pub fn mark_completed(&mut self, path: &Path) {
         self.reading_status.mark_completed(path);
-        self.reading_status.save(Path::new("reading_status.json"));
+        self.reading_status.save(&paths::data_file_path("reading_status.json"));
+    }
+
+    pub fn mark_uncompleted(&mut self, path: &Path) {
+        self.reading_status.mark_uncompleted(path);
+        self.reading_status.save(&paths::data_file_path("reading_status.json"));
     }
 }

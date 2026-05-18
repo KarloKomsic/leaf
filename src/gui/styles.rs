@@ -1,7 +1,6 @@
 use gtk4::CssProvider;
 use gtk4::gdk::Display;
 
-// CSS all over again...
 pub fn load() {
     let provider = CssProvider::new();
 
@@ -31,6 +30,8 @@ pub fn load() {
             padding: 8px;
             margin: 4px;
             min-width: 220px;
+            min-height: 88px;
+            max-height: 88px;
         }
 
         .book-card:hover {
@@ -83,6 +84,62 @@ pub fn load() {
         .complete-btn:hover {
             background-color: #26a269;
             color: white;
+        }
+
+        .context-btn {
+            padding: 4px 12px;
+            border: none;
+            background: transparent;
+            min-width: 160px;
+        }
+
+        .context-btn:hover {
+            background-color: @theme_selected_bg_color;
+            color: @theme_selected_fg_color;
+        }
+
+        .menu-item {
+            padding: 4px 12px;
+            border: none;
+            background: transparent;
+            min-width: 120px;
+        }
+
+        .menu-item:hover {
+            background-color: @theme_selected_bg_color;
+            color: @theme_selected_fg_color;
+        }
+
+        .welcome-wrapper {
+            margin-top: 0;
+        }
+
+        .welcome-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-top: 8px;
+            margin-bottom: 2px;
+        }
+
+        .welcome-subtitle {
+            font-size: 13px;
+            color: @theme_dim_label_color;
+            margin-bottom: 16px;
+        }
+
+        .welcome-button {
+            min-width: 200px;
+            padding: 8px 20px;
+            font-size: 13px;
+        }
+
+        .settings-section {
+            margin-bottom: 16px;
+        }
+
+        .settings-label {
+            font-weight: 600;
+            margin-bottom: 4px;
         }
         "#,
     );

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Leaf
+Comment=Book tracking and library manager
+Exec=leaf --gui
+Icon=com.leaf.app
+Terminal=false
+Type=Application
+Categories=Office;Viewer;
+StartupNotify=false
