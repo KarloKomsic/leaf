@@ -6,16 +6,9 @@ use std::path::Path;
 
 use crate::domain::{document::Document, metadata::Metadata};
 
-pub fn enrich_document(document: &mut Document) -> bool {
+pub fn enrich_document(document: &mut Document) {
     if let Some(metadata) = extract_metadata(&document.path) {
-        let had_title = metadata.title.is_some();
-        let had_author = metadata.author.is_some();
-
         apply_metadata(document, metadata);
-
-        had_title || had_author
-    } else {
-        false
     }
 }
 

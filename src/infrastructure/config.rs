@@ -12,10 +12,9 @@ pub struct Config {
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub enum ConfigError {
-    Io(std::io::Error),
-    Parse(toml::de::Error),
+    Io,
+    Parse,
 }
 
 impl Config {
@@ -39,9 +38,9 @@ impl Config {
 
     pub fn load() -> Result<Self, ConfigError> {
         let path = config_file_path();
-        let content = std::fs::read_to_string(path).map_err(ConfigError::Io)?;
+        let content = std::fs::read_to_string(path).map_err(|_| ConfigError::Io)?;
 
-        let config = toml::from_str(&content).map_err(ConfigError::Parse)?;
+        let config = toml::from_str(&content).map_err(|_| ConfigError::Parse)?;
 
         Ok(config)
     }

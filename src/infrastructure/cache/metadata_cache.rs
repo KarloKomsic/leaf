@@ -68,5 +68,4 @@ impl MetadataCache {
         self.entries.insert(key, entry);
     }
 
-    // Checks whether a cached entry matches the current file on disk
 }
