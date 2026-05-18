@@ -57,7 +57,6 @@ fn is_good_metadata(text: &str) -> bool {
 
     !lower.is_empty()
         && !lower.contains("pdfdrive")
-        && !lower.contains("z-library")
         && !lower.contains("unknown")
         && !lower.ends_with(".pdf")
         && !lower.ends_with(".epub")
