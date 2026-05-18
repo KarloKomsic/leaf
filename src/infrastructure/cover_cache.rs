@@ -25,7 +25,8 @@ pub fn cached_cover_path(path: &Path) -> Option<PathBuf> {
 }
 
 fn cache_dir() -> PathBuf {
-    PathBuf::from("cover_cache")
+    let base = dirs::cache_dir().unwrap_or_else(|| PathBuf::from("."));
+    base.join("leaf").join("cover_cache")
 }
 
 fn path_hash(path: &Path) -> String {

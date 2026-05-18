@@ -12,3 +12,4 @@ lopdf = "0.40.0"
 serde_json = "1.0.149"
 zip = "2"
 gtk4 = { version = "0.11", features = ["v4_22"] }
+dirs = "6"
