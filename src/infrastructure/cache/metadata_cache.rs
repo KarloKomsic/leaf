@@ -9,12 +9,12 @@ use crate::domain::metadata::Metadata;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CachedEntry {
     pub metadata: Metadata,
-
-    // Used to detect file changes
     pub modified: u64,
     pub size: u64,
 }
 
+// Keys are absolute file paths; old-format numeric keys (from an earlier
+// iteration that used {size}-{modified} hashes) are silently dropped.
 #[derive(Debug, Default)]
 pub struct MetadataCache {
     entries: HashMap<String, CachedEntry>,
@@ -70,6 +70,7 @@ impl MetadataCache {
         self.entries.insert(key, entry);
     }
 
+    // Checks whether a cached entry matches the current file on disk
     pub fn is_valid(&self, path: &Path) -> bool {
         let cached = match self.get(path) {
             Some(entry) => entry,

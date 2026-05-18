@@ -8,7 +8,7 @@ pub struct Document {
 }
 
 impl Document {
-    // Normalize titles for searching
+    // Strips parenthetical noise, punctuation, and lowercases for search matching
     pub fn normalized_title(&self) -> String {
         let mut title = self.title.to_lowercase();
 
@@ -35,6 +35,7 @@ impl Document {
         title.split_whitespace().collect::<Vec<_>>().join(" ")
     }
 
+    // Fallback when no metadata is available — just use the filename
     pub fn from_path(path: PathBuf) -> Self {
         let filename = path.file_stem().unwrap_or_default().to_string_lossy();
 

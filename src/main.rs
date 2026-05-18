@@ -7,6 +7,8 @@ use application::app_state::AppState;
 use application::cli_app::CliApp;
 use infrastructure::config::Config;
 
+// CLI-first — --gui opens the GTK window, otherwise we stay in the terminal.
+// The --gui flag is filtered before passing to GTK so it doesn't choke on it.
 fn main() {
     let use_gui = std::env::args().any(|a| a == "--gui");
 

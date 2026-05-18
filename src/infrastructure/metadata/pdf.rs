@@ -7,7 +7,7 @@ use lopdf::{Dictionary, Document as PdfDocument};
 use crate::domain::metadata::Metadata;
 
 pub fn extract_metadata(path: &Path) -> Option<Metadata> {
-    // Try pdfinfo first — ~13ms per file instead of ~3.75s
+    // Try pdfinfo first. ~13ms per file instead of ~3.75s
     if let Some(metadata) = extract_via_pdfinfo(path) {
         return Some(metadata);
     }

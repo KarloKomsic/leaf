@@ -7,6 +7,8 @@ use crate::infrastructure::reading_status_store::ReadingStatusStore;
 use crate::infrastructure::scanner::scan_library;
 use std::path::Path;
 
+// Single source of truth for both CLI and GUI. Ties together the metadata
+// cache and reading status store so a re-scan doesn't overwrite your place.
 #[derive(Debug)]
 pub struct AppState {
     pub library_state: LibraryState,

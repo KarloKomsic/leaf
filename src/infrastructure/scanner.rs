@@ -8,6 +8,8 @@ use std::time::Instant;
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["pdf", "epub"];
 
+// Stack-based directory walk (no recursion limits). For each supported
+// file, we either reuse cached metadata or extract fresh and cache it.
 pub fn scan_library(path: &Path, cache: &mut MetadataCache) -> Vec<Document> {
     let start = Instant::now();
     let mut documents = Vec::new();

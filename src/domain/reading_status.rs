@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+// Three states: never opened, currently reading, finished.
+// Stored separately from metadata so re-scanning the library
+// doesn't reset your reading progress.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ReadingStatus {
     Unread,

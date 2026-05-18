@@ -5,6 +5,8 @@ use std::time::SystemTime;
 
 use crate::domain::reading_status::{ReadingStatus, ReadingStatusEntry};
 
+// Separate persistence layer so we can wipe the metadata cache without
+// losing the user's reading progress.
 #[derive(Debug, Default)]
 pub struct ReadingStatusStore {
     entries: HashMap<String, ReadingStatusEntry>,

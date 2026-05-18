@@ -23,6 +23,7 @@ enum CmdResult {
     NotFound,
 }
 
+// Show a simple text badge — [  ] unread, [>] reading, [X] done
 fn status_symbol(status: &ReadingStatus) -> &'static str {
     match status {
         ReadingStatus::Unread => "[  ]",
@@ -115,6 +116,7 @@ impl CliApp {
                 CmdResult::NotFound => {}
             }
 
+            // Short queries (2-3 chars) trigger auto-suggest
             if query.len() >= 2 && query.len() <= 3 {
                 let should_suggest = self.state.library.as_ref().map(|lib| {
                     let suggestions = lib.suggest(&query);
@@ -277,6 +279,7 @@ impl CliApp {
             return;
         }
 
+        // "c 3" marks the 3rd result as completed without opening
         if let Some(rest) = selection.strip_prefix("c ") {
             if let Ok(index) = rest.parse::<usize>() {
                 if index > 0 && index <= results.len() {

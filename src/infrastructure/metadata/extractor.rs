@@ -2,6 +2,8 @@ use std::path::Path;
 
 use crate::domain::{document::Document, metadata::Metadata};
 
+// Routes to the correct extractor based on file extension. Called from
+// scanner.rs when metadata isn't already in the cache.
 pub fn enrich_document(document: &mut Document) -> bool {
     if let Some(metadata) = extract_metadata(&document.path) {
         let had_title = metadata.title.is_some();
@@ -53,11 +55,12 @@ fn clean_and_validate(text: Option<String>) -> Option<String> {
     }
 }
 
+// Skip junk that PDF generators often leave in the metadata fields
 fn is_good_metadata(text: &str) -> bool {
     let lower = text.to_lowercase();
 
     !lower.is_empty()
-        &&     !lower.contains("pdfdrive")
+        && !lower.contains("pdfdrive")
         && !lower.contains("z-library")
         && !lower.contains("unknown")
         && !lower.ends_with(".pdf")

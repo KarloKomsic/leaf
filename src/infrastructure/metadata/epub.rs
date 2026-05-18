@@ -3,6 +3,9 @@ use std::path::Path;
 
 use crate::domain::metadata::Metadata;
 
+// EPUB metadata lives in the OPF file (referenced from META-INF/container.xml).
+// We extract <dc:title> and <dc:creator> with simple string matching
+// no need for a full XML parser.
 pub fn extract_metadata(path: &Path) -> Option<Metadata> {
     let file = std::fs::File::open(path).ok()?;
     let mut archive = zip::ZipArchive::new(file).ok()?;

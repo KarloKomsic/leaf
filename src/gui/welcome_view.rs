@@ -6,6 +6,8 @@ use gtk4::*;
 
 use crate::application::app_state::AppState;
 
+// First-run screen: pick a directory, hit confirm, and get dropped
+// into the library view after scanning.
 pub fn show(content: &Box, state: &Rc<RefCell<AppState>>) {
     let title = Label::builder()
         .label("Welcome to Leaf")

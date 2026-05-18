@@ -4,6 +4,8 @@ use rand::thread_rng;
 use std::collections::{HashMap, HashSet};
 use strsim::levenshtein;
 
+// Builds a search index over title+author so we can fuzzy-match even
+// with typos or acronyms (e.g. "tlotr" → "The Lord of the Rings").
 const STOP_WORDS: &[&str] = &["and", "the", "of", "to", "a", "in", "for", "on"];
 
 #[derive(Debug)]
@@ -39,10 +41,6 @@ impl Library {
     pub fn document_count(&self) -> usize {
         self.documents.len()
     }
-
-    // =========================================================
-    // PUBLIC SEARCH API
-    // =========================================================
 
     pub fn search(&self, query: &str) -> Vec<SearchResult<'_>> {
         let normalized_query = Self::normalize(query);
@@ -357,10 +355,8 @@ impl Library {
         best_match
     }
 
-    // NOTE: Here, we utilize the Levenshtein distance
-    // which measures the similarity of two strings.
-    // This is useful for fuzzy searching (i.e. saying 'atomik' instead of 'atomic').
-    // For more information, look here: https://www.geeksforgeeks.org/dsa/introduction-to-levenshtein-distance/
+    // Levenshtein distance lets us catch typos like "atomik" → "atomic".
+    // Tolerance scales with query length so short words aren't over-fuzzed.
     fn max_levenshtein_distance(query: &str) -> usize {
         match query.len() {
             0..=4 => 1,
