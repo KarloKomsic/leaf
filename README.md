@@ -7,7 +7,7 @@ Leaf does **not** distribute, link to, or endorse any copyrighted content. It is
 **Features**
 
 - CLI (`leaf`) and GTK4 GUI (`leaf --gui`)
-- Fuzzy search with typo tolerance and acronym matching
+- Fuzzy search with typo tolerance and acronym matching, as well as search by author
 - Reading status tracking (Unread/Currently Reading/Completed)
 - Automatic metadata and cover extraction to a file to speed up loading times
 - Random book picker (exclusive to CLI as a little bonus!)
