@@ -1,6 +1,6 @@
 ![Leaf Logo](./data/icons/hicolor/256x256/apps/com.leaf.app.png)
 
-Leaf is a personal e-book library manager for Linux, written in Rust. It scans your library for PDF and EPUB files, extracts metadata and cover images, and lets you browse, search, and track your reading progress. If you have an e-book library and wish to be able to track your reading faster, this is it!
+Leaf is a free and open-source personal e-book library manager for Linux, written in Rust. It scans your library for PDF and EPUB files, extracts metadata and cover images, and lets you browse, search, and track your reading progress. If you have an e-book library and wish to be able to track your reading faster, this is it!
 
 Leaf does **not** distribute, link to, or endorse any copyrighted content. It is purely a management tool for your own local files — nothing is downloaded, shared, or fetched from external sources.
 
