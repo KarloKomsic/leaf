@@ -11,7 +11,7 @@ Leaf does **not** distribute, link to, or endorse any copyrighted content. It is
 - Reading status tracking (Unread/Currently Reading/Completed)
 - Automatic metadata and cover extraction to a file to speed up loading times
 - Random book picker (exclusive to CLI as a little bonus!)
-- Automatic opening of the OS' native document viewer for immediate reading
+- Configurable PDF viewer — pick your preferred reader from a dropdown of installed viewers (Zathura, Evince, Okular, etc.) or let it fall back to xdg-open
 
 ![CLI screenshot](screenshots/cli.png)
 ![GUI screenshot](screenshots/gui.png)

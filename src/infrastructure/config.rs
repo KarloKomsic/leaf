@@ -9,6 +9,7 @@ use std::fs;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub library_directory: Option<String>,
+    pub pdf_viewer: Option<String>,
 }
 
 #[derive(Debug)]
@@ -17,10 +18,39 @@ pub enum ConfigError {
     Parse,
 }
 
+const VIEWER_CANDIDATES: &[&str] = &[
+    "xdg-open",
+    "zathura",
+    "evince",
+    "okular",
+    "atril",
+    "mupdf",
+    "mupdf-gl",
+    "qpdfview",
+    "xpdf",
+];
+
+fn command_exists(name: &str) -> bool {
+    std::env::var_os("PATH")
+        .map(|paths| {
+            std::env::split_paths(&paths).any(|dir| dir.join(name).is_file())
+        })
+        .unwrap_or(false)
+}
+
+pub fn detect_available_viewers() -> Vec<String> {
+    VIEWER_CANDIDATES
+        .iter()
+        .filter(|cmd| **cmd == "xdg-open" || command_exists(cmd))
+        .map(|s| String::from(*s))
+        .collect()
+}
+
 impl Config {
     pub fn new() -> Self {
         Self {
             library_directory: None,
+            pdf_viewer: None,
         }
     }
 

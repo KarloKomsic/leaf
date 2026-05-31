@@ -7,6 +7,7 @@ use gtk4::*;
 
 use crate::application::app_state::AppState;
 use crate::domain::library::LibraryState;
+use crate::infrastructure::config;
 use crate::infrastructure::cover_cache;
 
 pub fn run(state: AppState) {
@@ -141,6 +142,31 @@ fn show_settings_dialog(parent: &ApplicationWindow, state: &Rc<RefCell<AppState>
 
     vbox.append(&section);
 
+    let viewer_section = Box::new(Orientation::Vertical, 4);
+    viewer_section.add_css_class("settings-section");
+
+    let viewer_label = Label::builder()
+        .label("PDF Viewer")
+        .css_classes(["settings-label"])
+        .halign(Align::Start)
+        .build();
+    viewer_section.append(&viewer_label);
+
+    let available_viewers = Rc::new(config::detect_available_viewers());
+    let current_viewer = state.borrow().pdf_viewer_or_default().to_string();
+    let viewer_items: Vec<&str> = available_viewers.iter().map(|s| s.as_str()).collect();
+    let model = StringList::new(&viewer_items);
+    let dropdown = DropDown::builder()
+        .model(&model)
+        .hexpand(true)
+        .build();
+    if let Some(idx) = available_viewers.iter().position(|v| v == &current_viewer) {
+        dropdown.set_selected(idx as u32);
+    }
+    viewer_section.append(&dropdown);
+
+    vbox.append(&viewer_section);
+
     let btn_box = Box::new(Orientation::Horizontal, 8);
     btn_box.set_halign(Align::End);
 
@@ -156,13 +182,22 @@ fn show_settings_dialog(parent: &ApplicationWindow, state: &Rc<RefCell<AppState>
     let state_save = state.clone();
     let content_save = content.clone();
     let parent_save = parent.clone();
+    let viewers_for_save = available_viewers.clone();
     save_btn.connect_clicked(move |_| {
         let new_path = entry.text().to_string();
-        if new_path.is_empty() {
-            return;
+        if !new_path.is_empty() {
+            if let Err(e) = state_save.borrow_mut().set_library_directory(new_path) {
+                let alert = AlertDialog::builder()
+                    .message(&format!("Error: {}", e))
+                    .build();
+                alert.show(Some(&parent_save));
+                return;
+            }
         }
 
-        if let Err(e) = state_save.borrow_mut().set_library_directory(new_path) {
+        let idx = dropdown.selected() as usize;
+        let viewer = viewers_for_save[idx].clone();
+        if let Err(e) = state_save.borrow_mut().set_pdf_viewer(viewer) {
             let alert = AlertDialog::builder()
                 .message(&format!("Error: {}", e))
                 .build();

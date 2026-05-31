@@ -15,7 +15,7 @@ use std::path::Path;
 pub struct AppState {
     pub library_state: LibraryState,
     pub library: Option<Library>,
-    config: Config,
+    pub config: Config,
     pub metadata_cache: MetadataCache,
     pub reading_status: ReadingStatusStore,
 }
@@ -51,6 +51,16 @@ impl AppState {
 
     pub fn is_library_configured(&self) -> bool {
         !matches!(self.library_state, LibraryState::NotConfigured)
+    }
+
+    pub fn pdf_viewer_or_default(&self) -> &str {
+        self.config.pdf_viewer.as_deref().unwrap_or("xdg-open")
+    }
+
+    pub fn set_pdf_viewer(&mut self, viewer: String) -> Result<(), String> {
+        let viewer = if viewer.trim().is_empty() { None } else { Some(viewer.trim().to_string()) };
+        self.config.pdf_viewer = viewer;
+        self.config.save().map_err(|e| format!("Failed to save config: {}", e))
     }
 
     pub fn set_library_directory(&mut self, path: String) -> Result<(), String> {

@@ -228,10 +228,10 @@ fn open_book(
             entry.0.add_css_class("reading");
         }
     }
-    std::process::Command::new("xdg-open")
-        .arg(&doc_path)
-        .spawn()
-        .expect("Failed to open file");
+    let viewer = state.borrow().pdf_viewer_or_default().to_string();
+    if let Err(e) = std::process::Command::new(&viewer).arg(&doc_path).spawn() {
+        eprintln!("Failed to open file with {}: {}", viewer, e);
+    }
 }
 
 /// Lays out the main library screen: sidebar on the left, search bar

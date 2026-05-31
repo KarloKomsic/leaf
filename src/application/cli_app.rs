@@ -13,11 +13,10 @@ pub struct CliApp {
     pub state: AppState,
 }
 
-fn open_file(doc: &Document) {
-    Command::new("xdg-open")
-        .arg(&doc.path)
-        .spawn()
-        .expect("Failed to open file");
+fn open_file(doc: &Document, viewer: &str) {
+    if let Err(e) = Command::new(viewer).arg(&doc.path).spawn() {
+        eprintln!("Failed to open file with {}: {}", viewer, e);
+    }
 }
 
 enum CmdResult {
@@ -190,7 +189,8 @@ impl CliApp {
                     author: None,
                     path,
                 };
-                open_file(&doc);
+                let viewer = self.state.pdf_viewer_or_default().to_string();
+                open_file(&doc, &viewer);
                 CmdResult::Handled
             }
 
@@ -320,7 +320,8 @@ impl CliApp {
                     author: None,
                     path: path.clone(),
                 };
-                open_file(&doc);
+                let viewer = self.state.pdf_viewer_or_default().to_string();
+                open_file(&doc, &viewer);
             }
 
             _ => println!("Invalid selection"),
