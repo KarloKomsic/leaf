@@ -30,13 +30,7 @@ fn update_card_visibility(
         Some(
             suggestions
                 .iter()
-                .map(|doc| {
-                    library
-                        .documents
-                        .iter()
-                        .position(|d| d.path == doc.path)
-                        .unwrap()
-                })
+                .filter_map(|doc| library.documents.iter().position(|d| d.path == doc.path))
                 .collect(),
         )
     } else {
@@ -44,12 +38,11 @@ fn update_card_visibility(
         Some(
             results
                 .iter()
-                .map(|r| {
+                .filter_map(|r| {
                     library
                         .documents
                         .iter()
                         .position(|d| d.path == r.document.path)
-                        .unwrap()
                 })
                 .collect(),
         )

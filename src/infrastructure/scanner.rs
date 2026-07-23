@@ -3,7 +3,8 @@
 // extracted from the file and saved for next time.
 
 use crate::domain::document::Document;
-use crate::infrastructure::cache::metadata_cache::MetadataCache;
+use crate::domain::metadata::Metadata;
+use crate::infrastructure::cache::metadata_cache::{CachedEntry, MetadataCache};
 use crate::infrastructure::metadata::extractor::enrich_document;
 
 use std::fs;
@@ -44,19 +45,26 @@ pub fn scan_library(path: &Path, cache: &mut MetadataCache) -> Vec<Document> {
                 } else {
                     enrich_document(&mut document);
 
-                    let file_metadata = fs::metadata(&entry_path).unwrap();
+                    let file_metadata = match fs::metadata(&entry_path) {
+                        Ok(m) => m,
+                        Err(e) => {
+                            eprintln!("  Skipping {}: {}", entry_path.display(), e);
+                            continue;
+                        }
+                    };
 
-                    let modified = file_metadata
-                        .modified()
-                        .unwrap()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs();
+                    let modified = match file_metadata.modified() {
+                        Ok(t) => t
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map(|d| d.as_secs())
+                            .unwrap_or(0),
+                        Err(_) => 0,
+                    };
 
                     cache.insert(
                         entry_path.clone(),
-                        crate::infrastructure::cache::metadata_cache::CachedEntry {
-                            metadata: crate::domain::metadata::Metadata {
+                        CachedEntry {
+                            metadata: Metadata {
                                 title: Some(document.title.clone()),
                                 author: document.author.clone(),
                             },
