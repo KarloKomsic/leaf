@@ -262,7 +262,9 @@ impl Library {
     fn acronym(text: &str) -> String {
         text.split_whitespace()
             .filter(|word| !STOP_WORDS.contains(word))
-            .filter_map(|word| word.chars().next())
+            .flat_map(|word| word.split('.'))
+            .filter(|part| !part.is_empty())
+            .filter_map(|part| part.chars().next())
             .collect::<String>()
             .to_lowercase()
     }
@@ -363,5 +365,76 @@ impl Library {
             5..=8 => 2,
             _ => 3,
         }
+    }
+}
+
+// Testing the search logic
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn make_doc(title: &str, author: Option<&str>) -> Document {
+        Document {
+            title: title.to_string(),
+            author: author.map(|s| s.to_string()),
+            path: PathBuf::from(format!("{}.pdf", title.to_lowercase().replace(' ', "_"))),
+        }
+    }
+
+    fn make_library() -> Library {
+        Library::new(vec![
+            make_doc("Atomic Habits", Some("James Clear")),
+            make_doc("Brave New World", Some("Aldous Huxley")),
+            make_doc("The Lord of The Rings", Some("J.R.R. Tolkien")),
+            make_doc("The Hobbit", Some("J.R.R. Tolkien")),
+            make_doc("Lolita", Some("Vladimir Nabokov")),
+            make_doc("Calisthenics for Beginners", None),
+        ])
+    }
+
+    #[test]
+    fn acronym_matches_title() {
+        let lib = make_library();
+        let results = lib.search("bnw");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].document.title, "Brave New World");
+    }
+
+    #[test]
+    fn acronym_matches_author() {
+        let lib = make_library();
+        let results = lib.search("jrrt");
+        assert_eq!(results.len(), 2);
+        assert!(results.iter().all(|r| r.document.author.as_deref() == Some("J.R.R. Tolkien")));
+    }
+
+    #[test]
+    fn exact_title_wins_over_fuzzy() {
+        let lib = make_library();
+        let results = lib.search("lolita");
+        assert_eq!(results.len(), 1);
+        assert!(matches!(results[0].match_type, MatchType::Exact));
+    }
+
+    #[test]
+    fn fuzzy_finds_close_match() {
+        let lib = make_library();
+        let results = lib.search("lolite");
+        assert!(results.iter().any(|r| r.document.title == "Lolita"));
+    }
+
+    #[test]
+    fn no_match_returns_empty() {
+        let lib = make_library();
+        let results = lib.search("xyznonexistent");
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn suggest_returns_prefix_matches() {
+        let lib = make_library();
+        let results = lib.suggest("ato");
+        assert!(results.iter().any(|d| d.title == "Atomic Habits"));
     }
 }
