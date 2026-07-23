@@ -15,6 +15,18 @@ pub struct ReadingStatusStore {
 }
 
 impl ReadingStatusStore {
+    // Timestamps use seconds-since-epoch rather than any human-readable
+    // format because they're only compared (e.g. "was this opened more
+    // recently than that?") and never displayed to the user directly,
+    // which we can use to give the current time which we can store
+    // as last opened or completed.
+    fn now() -> Option<u64> {
+        SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .ok()
+            .map(|d| d.as_secs())
+    }
+
     pub fn get(&self, path: &Path) -> ReadingStatus {
         let key = path.to_string_lossy().to_string();
         self.entries
@@ -25,32 +37,22 @@ impl ReadingStatusStore {
 
     pub fn mark_started(&mut self, path: &Path) {
         let key = path.to_string_lossy().to_string();
-        let now = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .ok()
-            .map(|d| d.as_secs());
-
         self.entries.insert(
             key,
             ReadingStatusEntry {
                 status: ReadingStatus::CurrentlyReading,
-                last_opened: now,
+                last_opened: Self::now(),
             },
         );
     }
 
     pub fn mark_completed(&mut self, path: &Path) {
         let key = path.to_string_lossy().to_string();
-        let now = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .ok()
-            .map(|d| d.as_secs());
-
         self.entries.insert(
             key,
             ReadingStatusEntry {
                 status: ReadingStatus::Completed,
-                last_opened: now,
+                last_opened: Self::now(),
             },
         );
     }
