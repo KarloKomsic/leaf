@@ -128,21 +128,22 @@ impl CliApp {
 
             // Short queries (2-3 chars) trigger auto-suggest
             if query.len() >= 2 && query.len() <= 3 {
-                let should_suggest = self.state.library.as_ref().map(|lib| {
+                if let Some(lib) = &self.state.library {
                     let suggestions = lib.suggest(&query);
                     if !suggestions.is_empty() {
                         println!("\nSuggestions:");
                         for (i, doc) in suggestions.iter().enumerate() {
                             println!(" {}. {}", i + 1, doc.title);
                         }
-                        true
-                    } else {
-                        false
-                    }
-                }).unwrap_or(false);
 
-                if should_suggest {
-                    continue;
+                        let results: Vec<_> = suggestions
+                            .iter()
+                            .map(|doc| (doc.path.clone(), doc.title.clone()))
+                            .collect();
+
+                        self.select_and_open(results);
+                        continue;
+                    }
                 }
             }
 
@@ -278,13 +279,15 @@ impl CliApp {
                 .collect::<Vec<_>>()
         };
 
-        self.handle_selection(titles);
+        self.select_and_open(titles);
     }
 
     // After search results are shown, lets the user pick one to open
     // or mark as completed by typing the result number.
-    fn handle_selection(&mut self, results: Vec<(std::path::PathBuf, String)>) {
-        println!("\nEnter number to open book, or 'c <n>' to mark as completed (or press Enter to skip):");
+    fn select_and_open(&mut self, results: Vec<(std::path::PathBuf, String)>) {
+        println!(
+            "\nEnter number to open book, or 'c <n>' to mark as completed (or press Enter to skip):"
+        );
 
         let mut selection = String::new();
         io::stdin().read_line(&mut selection).unwrap();
@@ -327,5 +330,4 @@ impl CliApp {
             _ => println!("Invalid selection"),
         }
     }
-
 }
