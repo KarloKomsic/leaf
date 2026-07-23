@@ -17,7 +17,10 @@ fn main() {
     // Load saved config, or create a fresh one if this is the first run
     let config = Config::load().unwrap_or_else(|_| {
         let config = Config::new();
-        config.save().expect("Failed to save default config");
+        if let Err(e) = config.save() {
+            eprintln!("Failed to save default config: {}", e);
+            std::process::exit(1);
+        }
         config
     });
 

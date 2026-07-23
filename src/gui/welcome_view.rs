@@ -21,10 +21,11 @@ pub fn show(
 
     let logo_bytes = include_bytes!("../../data/icons/hicolor/1024x1024/apps/com.leaf.app.png");
     let loader = gdk_pixbuf::PixbufLoader::new();
-    loader.write(logo_bytes).unwrap();
-    loader.close().unwrap();
-    let pixbuf = loader.pixbuf().unwrap();
-    let scaled = pixbuf.scale_simple(128, 128, gdk_pixbuf::InterpType::Bilinear).unwrap();
+    loader.write(logo_bytes).expect("embedded icon bytes are valid");
+    loader.close().expect("PixbufLoader close should succeed");
+    let pixbuf = loader.pixbuf().expect("embedded icon should produce a pixbuf");
+    let scaled = pixbuf.scale_simple(128, 128, gdk_pixbuf::InterpType::Bilinear)
+        .expect("embedded icon should scale successfully");
     let pixel_bytes = scaled.read_pixel_bytes();
     let format = if scaled.has_alpha() {
         gtk4::gdk::MemoryFormat::R8g8b8a8

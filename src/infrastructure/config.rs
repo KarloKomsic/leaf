@@ -55,7 +55,8 @@ impl Config {
     }
 
     pub fn save(&self) -> Result<(), std::io::Error> {
-        let toml_string = toml::to_string(self).expect("Failed to serialize config");
+        let toml_string = toml::to_string(self)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
         let path = config_file_path();
 

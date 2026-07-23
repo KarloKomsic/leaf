@@ -54,7 +54,9 @@ impl CliApp {
                 println!("Please enter your library directory:");
 
                 let mut input = String::new();
-                io::stdin().read_line(&mut input).unwrap();
+                if io::stdin().read_line(&mut input).is_err() {
+                    break;
+                }
 
                 let input = input.trim();
 
@@ -157,7 +159,9 @@ impl CliApp {
         );
 
         let mut query = String::new();
-        io::stdin().read_line(&mut query).unwrap();
+        if io::stdin().read_line(&mut query).is_err() {
+            return String::new();
+        }
 
         query.trim().to_string()
     }
@@ -290,7 +294,9 @@ impl CliApp {
         );
 
         let mut selection = String::new();
-        io::stdin().read_line(&mut selection).unwrap();
+        if io::stdin().read_line(&mut selection).is_err() {
+            return;
+        }
         let selection = selection.trim();
 
         if selection.is_empty() {

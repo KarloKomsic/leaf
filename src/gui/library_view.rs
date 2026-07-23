@@ -139,10 +139,9 @@ fn show_context_menu(
         let cards_c = cards.clone();
         let popover_c = popover.clone();
         btn.connect_clicked(move |_| {
-            let path = {
-                let s = state_c.borrow();
-                let lib = s.library.as_ref().unwrap();
-                lib.documents[idx].path.clone()
+            let path = match state_c.borrow().library.as_ref() {
+                Some(lib) => lib.documents[idx].path.clone(),
+                None => return,
             };
             state_c.borrow_mut().mark_completed(&path);
             if let Some(entry) = cards_c.borrow_mut().get_mut(idx) {
@@ -164,10 +163,9 @@ fn show_context_menu(
         let cards_c = cards.clone();
         let popover_c = popover.clone();
         btn.connect_clicked(move |_| {
-            let path = {
-                let s = state_c.borrow();
-                let lib = s.library.as_ref().unwrap();
-                lib.documents[idx].path.clone()
+            let path = match state_c.borrow().library.as_ref() {
+                Some(lib) => lib.documents[idx].path.clone(),
+                None => return,
             };
             state_c.borrow_mut().mark_uncompleted(&path);
             if let Some(entry) = cards_c.borrow_mut().get_mut(idx) {
@@ -207,10 +205,9 @@ fn open_book(
     cards: &Rc<RefCell<Vec<(ListBoxRow, Box, ReadingStatus, Button)>>>,
     idx: usize,
 ) {
-    let doc_path: std::path::PathBuf = {
-        let s = state.borrow();
-        let lib = s.library.as_ref().expect("library not loaded");
-        lib.documents[idx].path.clone()
+    let doc_path = match state.borrow().library.as_ref() {
+        Some(lib) => lib.documents[idx].path.clone(),
+        None => return,
     };
 
     state.borrow_mut().mark_started(&doc_path);
