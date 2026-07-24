@@ -49,7 +49,7 @@ fn update_card_visibility(
     };
 
     let mut visible_count = 0;
-    for (idx, (_card_row, _hbox, status, _btn)) in cards.iter().enumerate() {
+    for (idx, (card_row, _hbox, status, _btn)) in cards.iter().enumerate() {
         let cat_match = match category {
             Category::All => true,
             Category::CurrentlyReading => *status == ReadingStatus::CurrentlyReading,
@@ -61,9 +61,11 @@ fn update_card_visibility(
             Some(matches) => matches.contains(&idx),
         };
 
-        if cat_match && search_match {
+        let visible = cat_match && search_match;
+        if visible {
             visible_count += 1;
         }
+        card_row.set_visible(visible);
     }
 
     // Apply ScrolledWindow constraints BEFORE changing visibility,
@@ -88,22 +90,6 @@ fn update_card_visibility(
         scroll_books.set_vexpand(true);
         scroll_books.set_min_content_height(-1);
         scroll_books.set_max_content_height(-1);
-    }
-
-    // Now apply visibility after the constraints are in place.
-    for (idx, (card_row, _hbox, status, _btn)) in cards.iter().enumerate() {
-        let cat_match = match category {
-            Category::All => true,
-            Category::CurrentlyReading => *status == ReadingStatus::CurrentlyReading,
-            Category::Completed => *status == ReadingStatus::Completed,
-        };
-
-        let search_match = match &search_matches {
-            None => true,
-            Some(matches) => matches.contains(&idx),
-        };
-
-        card_row.set_visible(cat_match && search_match);
     }
 }
 
