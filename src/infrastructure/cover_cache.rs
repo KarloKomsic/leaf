@@ -2,6 +2,7 @@
 // as JPEGs in a local cover_cache/ directory. If a cached cover
 // already exists, we skip generation entirely.
 
+use roxmltree::Document;
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::{Hash, Hasher};
@@ -68,7 +69,11 @@ fn generate_pdf_cover(path: &Path, output: &Path) -> Option<()> {
 
     if !result.status.success() {
         let stderr = String::from_utf8_lossy(&result.stderr);
-        eprintln!("    pdftoppm error for {}: {}", path.display(), stderr.trim());
+        eprintln!(
+            "    pdftoppm error for {}: {}",
+            path.display(),
+            stderr.trim()
+        );
         return None;
     }
 
@@ -130,11 +135,13 @@ fn read_opf(archive: &mut zip::ZipArchive<fs::File>) -> Option<(String, Vec<u8>)
     };
 
     let xml = String::from_utf8_lossy(&container);
-    let needle = "full-path=\"";
-    let start = xml.find(needle)?;
-    let rest = &xml[start + needle.len()..];
-    let end = rest.find('"')?;
-    let opf_path = rest[..end].to_string();
+    let doc = Document::parse(&xml).ok()?;
+
+    let opf_path = doc
+        .descendants()
+        .find(|n| n.tag_name().name() == "rootfile")
+        .and_then(|n| n.attribute("full-path"))?
+        .to_string();
 
     let opf_bytes = {
         let mut f = archive.by_name(&opf_path).ok()?;
@@ -149,50 +156,15 @@ fn read_opf(archive: &mut zip::ZipArchive<fs::File>) -> Option<(String, Vec<u8>)
 // Scans the OPF XML for a <meta> element with name="cover" and then
 // looks up the corresponding <item> element to get the image href.
 fn find_cover_href(opf: &str) -> Option<String> {
-    let meta_needle = "name=\"cover\" content=\"";
-    let meta_needle2 = "name='cover' content='";
+    let doc = Document::parse(opf).ok()?;
 
-    let cover_id = opf
-        .find(meta_needle)
-        .or_else(|| opf.find(meta_needle2))
-        .and_then(|start| {
-            let rest = &opf[start..];
-            let value_start = rest.find("content=\"")? + "content=\"".len();
-            let end = rest[value_start..].find('"')?;
-            Some(rest[value_start..value_start + end].to_string())
-        })
-        .or_else(|| {
-            let start = opf.find(meta_needle2)?;
-            let rest = &opf[start..];
-            let value_start = rest.find("content='")? + "content='".len();
-            let end = rest[value_start..].find('\'')?;
-            Some(rest[value_start..value_start + end].to_string())
-        })?;
+    let cover_id = doc
+        .descendants()
+        .find(|n| n.tag_name().name() == "meta" && n.attribute("name") == Some("cover"))
+        .and_then(|n| n.attribute("content"))?;
 
-    let item_needle = format!("id=\"{}\"", cover_id);
-    let item_needle2 = format!("id='{}'", cover_id);
-
-    let item_section = opf
-        .find(&item_needle)
-        .or_else(|| opf.find(&item_needle2))
-        .map(|start| &opf[start..])?;
-
-    let href_needle = "href=\"";
-    let alt_href = "href='";
-
-    item_section
-        .find(href_needle)
-        .or_else(|| item_section.find(alt_href))
-        .and_then(|start| {
-            let rest = &item_section[start..];
-            let value_start = rest.find("href=\"")? + "href=\"".len();
-            let end = rest[value_start..].find('"')?;
-            Some(rest[value_start..value_start + end].to_string())
-        })
-        .or_else(|| {
-            let rest = &item_section;
-            let value_start = rest.find("href='")? + "href='".len();
-            let end = rest[value_start..].find('\'')?;
-            Some(rest[value_start..value_start + end].to_string())
-        })
+    doc.descendants()
+        .find(|n| n.tag_name().name() == "item" && n.attribute("id") == Some(cover_id))
+        .and_then(|n| n.attribute("href"))
+        .map(|s| s.to_string())
 }

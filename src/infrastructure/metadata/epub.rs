@@ -1,7 +1,7 @@
 // EPUB metadata lives in the OPF file, which is referenced from
-// META-INF/container.xml. We grab <dc:title> and <dc:creator>
-// using basic string parsing instead of pulling in an XML library.
+// META-INF/container.xml. We use roxmltree to navigate the XML
 
+use roxmltree::Document;
 use std::io::Read;
 use std::path::Path;
 
@@ -14,9 +14,19 @@ pub fn extract_metadata(path: &Path) -> Option<Metadata> {
     let opf_path = find_opf_path(&mut archive)?;
     let opf_content = read_file(&mut archive, &opf_path)?;
     let opf = String::from_utf8_lossy(&opf_content);
+    let doc = Document::parse(&opf).ok()?;
 
-    let title = extract_tag(&opf, "dc:title").map(clean);
-    let author = extract_tag(&opf, "dc:creator").map(clean);
+    let title = doc
+        .descendants()
+        .find(|n| n.tag_name().name() == "title")
+        .and_then(|n| n.text())
+        .map(|s| clean(s.to_string()));
+
+    let author = doc
+        .descendants()
+        .find(|n| n.tag_name().name() == "creator")
+        .and_then(|n| n.text())
+        .map(|s| clean(s.to_string()));
 
     Some(Metadata { title, author })
 }
@@ -24,12 +34,12 @@ pub fn extract_metadata(path: &Path) -> Option<Metadata> {
 fn find_opf_path(archive: &mut zip::ZipArchive<std::fs::File>) -> Option<String> {
     let content = read_file(archive, "META-INF/container.xml")?;
     let xml = String::from_utf8_lossy(&content);
+    let doc = Document::parse(&xml).ok()?;
 
-    let needle = "full-path=\"";
-    let start = xml.find(needle)?;
-    let rest = &xml[start + needle.len()..];
-    let end = rest.find('"')?;
-    Some(rest[..end].to_string())
+    doc.descendants()
+        .find(|n| n.tag_name().name() == "rootfile")
+        .and_then(|n| n.attribute("full-path"))
+        .map(|s| s.to_string())
 }
 
 fn read_file(archive: &mut zip::ZipArchive<std::fs::File>, path: &str) -> Option<Vec<u8>> {
@@ -37,24 +47,6 @@ fn read_file(archive: &mut zip::ZipArchive<std::fs::File>, path: &str) -> Option
     let mut buf = Vec::with_capacity(file.size() as usize);
     file.read_to_end(&mut buf).ok()?;
     Some(buf)
-}
-
-fn extract_tag(xml: &str, tag: &str) -> Option<String> {
-    let open = format!("<{}", tag);
-
-    let start = xml.find(&open)?;
-    let rest = &xml[start..];
-
-    let value_start = rest.find('>')? + 1;
-    let close = format!("</{}>", tag);
-    let value_end = rest[value_start..].find(&close)?;
-
-    let value = rest[value_start..value_start + value_end].trim();
-    if value.is_empty() {
-        return None;
-    }
-
-    Some(value.to_string())
 }
 
 fn clean(text: String) -> String {
