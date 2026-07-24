@@ -68,3 +68,47 @@ impl Document {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn normalized_title_strips_parentheses() {
+        let doc = Document {
+            title: "The Lord of the Rings (Book One)".into(),
+            author: None,
+            path: PathBuf::new(),
+        };
+        assert_eq!(doc.normalized_title(), "the lord of the rings");
+    }
+
+    #[test]
+    fn normalized_title_replaces_punctuation() {
+        let doc = Document {
+            title: "Hello-World! It's \"Great\"".into(),
+            author: None,
+            path: PathBuf::new(),
+        };
+        assert_eq!(doc.normalized_title(), "hello world it s great");
+    }
+
+    #[test]
+    fn from_path_uses_filename_without_extension() {
+        let doc = Document::from_path(PathBuf::from("/books/the_hobbit.pdf"));
+        assert_eq!(doc.title, "the hobbit");
+    }
+
+    #[test]
+    fn from_path_replaces_separators_with_spaces() {
+        let doc = Document::from_path(PathBuf::from("/books/the.lord.of.the-rings.epub"));
+        assert_eq!(doc.title, "the lord of the rings");
+    }
+
+    #[test]
+    fn from_path_sets_author_to_none() {
+        let doc = Document::from_path(PathBuf::from("/books/test1.pdf"));
+        assert_eq!(doc.author, None);
+    }
+}

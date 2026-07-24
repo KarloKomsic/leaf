@@ -69,3 +69,53 @@ fn clean_metadata(text: &str) -> String {
         .trim()
         .to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_good_metadata_rejects_pdfdrive() {
+        assert!(!is_good_metadata("pdfdrive"));
+    }
+
+    #[test]
+    fn is_good_metadata_rejects_unknown() {
+        assert!(!is_good_metadata("Unknown"));
+    }
+
+    #[test]
+    fn is_good_metadata_rejects_too_short() {
+        assert!(!is_good_metadata("ab"));
+    }
+
+    #[test]
+    fn is_good_metadata_rejects_filename_extension() {
+        assert!(!is_good_metadata("document.pdf"));
+    }
+
+    #[test]
+    fn is_good_metadata_accepts_valid_title() {
+        assert!(is_good_metadata("The Great Gatsby"));
+    }
+
+    #[test]
+    fn clean_metadata_removes_bom() {
+        assert_eq!(clean_metadata("\u{feff}Title"), "Title");
+    }
+
+    #[test]
+    fn clean_metadata_removes_null_bytes() {
+        assert_eq!(clean_metadata("Title\0\0"), "Title");
+    }
+
+    #[test]
+    fn clean_metadata_trims_whitespace() {
+        assert_eq!(clean_metadata("  Title  "), "Title");
+    }
+
+    #[test]
+    fn clean_metadata_handles_bom_and_nulls_together() {
+        assert_eq!(clean_metadata("\u{feff}\0\0 Title \0\0"), "Title");
+    }
+}
