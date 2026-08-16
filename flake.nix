@@ -21,7 +21,7 @@
 
         nativeBuildInputs = [ pkgs.pkg-config pkgs.wrapGAppsHook4 ];
         buildInputs = [ pkgs.gtk4 ];
-        propagatedBuildInputs = [ pkgs.poppler_utils ];
+        propagatedBuildInputs = [ pkgs.poppler-utils ];
 
         meta = {
           description = "E-book library manager for Linux, written in Rust";
