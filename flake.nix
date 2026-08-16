@@ -23,6 +23,22 @@
         buildInputs = [ pkgs.gtk4 ];
         propagatedBuildInputs = [ pkgs.poppler-utils ];
 
+        desktopItems = [
+          (pkgs.makeDesktopItem {
+            name = "leaf";
+            exec = "leaf --gui"; 
+            icon = "accessories-dictionary"; 
+            desktopName = "Leaf";
+            comment = "Personal e-book library manager";
+            categories = [ "Office" "Utility" ];
+          })
+        ];
+
+        postInstall = ''
+          mkdir -p $out/share/applications
+          cp -r $out/share/applications/* $out/share/applications/ || true
+        '';
+
         meta = {
           description = "E-book library manager for Linux, written in Rust";
           homepage = "https://codeberg.org/KarloKomsic/leaf";
