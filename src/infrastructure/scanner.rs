@@ -7,6 +7,7 @@ use crate::domain::metadata::Metadata;
 use crate::infrastructure::cache::metadata_cache::{CachedEntry, MetadataCache};
 use crate::infrastructure::metadata::extractor::enrich_document;
 
+use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 use std::time::Instant;
@@ -18,6 +19,7 @@ const SUPPORTED_EXTENSIONS: &[&str] = &["pdf", "epub"];
 pub fn scan_library(path: &Path, cache: &mut MetadataCache) -> Vec<Document> {
     let start = Instant::now();
     let mut documents = Vec::new();
+    let mut seen_paths = HashSet::new();
 
     let mut dirs = vec![path.to_path_buf()];
 
@@ -35,14 +37,18 @@ pub fn scan_library(path: &Path, cache: &mut MetadataCache) -> Vec<Document> {
                     continue;
                 }
 
+                seen_paths.insert(entry_path.clone());
                 let mut document = Document::from_path(entry_path.clone());
 
-                if let Some(metadata) = cache.get(&entry_path) {
+                if cache.is_fresh(&entry_path) {
+                    // Cache hit and file hasn't changed — use cached metadata
+                    let metadata = cache.get(&entry_path).unwrap();
                     document.apply_metadata(
                         metadata.metadata.title.clone(),
                         metadata.metadata.author.clone(),
                     );
                 } else {
+                    // Cache miss or file changed — (re-)extract metadata
                     enrich_document(&mut document);
 
                     let file_metadata = match fs::metadata(&entry_path) {
@@ -78,6 +84,9 @@ pub fn scan_library(path: &Path, cache: &mut MetadataCache) -> Vec<Document> {
             }
         }
     }
+
+    // Drop cache entries for files that no longer exist
+    cache.prune(&seen_paths);
 
     println!("Scan completed in {:?}", start.elapsed());
 

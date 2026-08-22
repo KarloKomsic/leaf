@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -68,4 +69,50 @@ impl MetadataCache {
         self.entries.insert(key, entry);
     }
 
+    pub fn remove(&mut self, path: &Path) {
+        let key = path.to_string_lossy().to_string();
+        self.entries.remove(&key);
+    }
+
+    /// Checks whether the cached entry for `path` still matches the
+    /// file on disk by comparing stored modified time and size against
+    /// the current file metadata. Returns false if the file is gone
+    /// or has changed since the cache was written.
+    pub fn is_fresh(&self, path: &Path) -> bool {
+        let key = path.to_string_lossy().to_string();
+        let entry = match self.entries.get(&key) {
+            Some(e) => e,
+            None => return false,
+        };
+
+        let meta = match fs::metadata(path) {
+            Ok(m) => m,
+            Err(_) => return false,
+        };
+
+        let current_modified = meta
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        let current_size = meta.len();
+
+        entry.modified == current_modified && entry.size == current_size
+    }
+
+    /// Removes cache entries for files that are not in `seen_paths`.
+    /// Call this after a full scan to drop orphaned entries (deleted
+    /// or moved books).
+    pub fn prune(&mut self, seen_paths: &HashSet<PathBuf>) {
+        self.entries.retain(|key, _| {
+            let path = Path::new(key);
+            let keep = seen_paths.contains(path);
+            if !keep {
+                println!("  Pruning orphaned cache entry: {}", key);
+            }
+            keep
+        });
+    }
 }
