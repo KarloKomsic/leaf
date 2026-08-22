@@ -42,6 +42,12 @@ impl CliApp {
 
     pub fn run(&mut self) {
         self.ensure_library_configured();
+
+        if !self.state.is_library_configured() {
+            println!("No library configured. Exiting.");
+            return;
+        }
+
         self.show_library();
         self.search_loop();
     }
@@ -54,7 +60,7 @@ impl CliApp {
                 println!("Please enter your library directory:");
 
                 let mut input = String::new();
-                if io::stdin().read_line(&mut input).is_err() {
+                if io::stdin().read_line(&mut input).is_err() || input.is_empty() {
                     break;
                 }
 
@@ -115,7 +121,10 @@ impl CliApp {
     // a full search if nothing else matched.
     fn search_loop(&mut self) {
         loop {
-            let query = self.read_query();
+            let query = match self.read_query() {
+                Some(q) => q,
+                None => break,
+            };
 
             if query.is_empty() {
                 println!("Please enter a search query.");
@@ -153,17 +162,17 @@ impl CliApp {
         }
     }
 
-    fn read_query(&self) -> String {
+    fn read_query(&self) -> Option<String> {
         println!(
             "\nEnter a book name or author name (or 'random' for random book, 'list' to list all books, 'reading' for currently reading, 'completed' for completed, or 'exit' to quit):"
         );
 
         let mut query = String::new();
-        if io::stdin().read_line(&mut query).is_err() {
-            return String::new();
+        if io::stdin().read_line(&mut query).is_err() || query.is_empty() {
+            return None;
         }
 
-        query.trim().to_string()
+        Some(query.trim().to_string())
     }
 
     fn handle_command(&mut self, query: &str) -> CmdResult {
