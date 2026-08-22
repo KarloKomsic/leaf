@@ -69,11 +69,6 @@ impl MetadataCache {
         self.entries.insert(key, entry);
     }
 
-    pub fn remove(&mut self, path: &Path) {
-        let key = path.to_string_lossy().to_string();
-        self.entries.remove(&key);
-    }
-
     /// Checks whether the cached entry for `path` still matches the
     /// file on disk by comparing stored modified time and size against
     /// the current file metadata. Returns false if the file is gone
