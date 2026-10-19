@@ -24,10 +24,6 @@ case "${1:-}" in
         ;;
 esac
 
-# ------------------------------------------------------------------
-# Dependency detection and installation
-# ------------------------------------------------------------------
-
 detect_distro() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
@@ -43,8 +39,9 @@ MISSING_RUNTIME=()
 if ! command -v rustc &> /dev/null; then MISSING_BUILD+=("rustc"); fi
 if ! command -v cargo &> /dev/null; then MISSING_BUILD+=("cargo"); fi
 
-if ! command -v pkg-config &> /dev/null || ! pkg-config --exists gtk4 2>/dev/null; then
-    MISSING_BUILD+=("gtk4 development headers (includes pango, gdk-pixbuf, cairo)")
+if ! command -v pkg-config &> /dev/null || \
+   ! pkg-config --exists gtk4 glib-2.0 pango cairo-gobject graphene-gobject-1.0 2>/dev/null; then
+    MISSING_BUILD+=("gtk4 development headers (includes glib, pango, cairo, graphene)")
 fi
 
 if ! command -v pdftoppm &> /dev/null; then
@@ -61,19 +58,19 @@ if [ ${#MISSING_BUILD[@]} -gt 0 ] || [ ${#MISSING_RUNTIME[@]} -gt 0 ]; then
 
     case "$DISTRO" in
         arch|endeavouros|artix|manjaro|cachyos)
-            PKG_CMD="sudo pacman -S --needed gtk4 poppler"
+            PKG_CMD="sudo pacman -S --needed --noconfirm gtk4 poppler pkgconf cairo graphene pango"
             PKG_LABEL="Arch or Arch derivative (EndeavourOS, CachyOS, Manjaro, etc.)"
             ;;
         debian|ubuntu|pop|linuxmint|zorin|elementary|trisquel|neon)
-            PKG_CMD="sudo apt install libgtk-4-dev poppler-utils"
+            PKG_CMD="sudo apt install -y libgtk-4-dev libglib2.0-dev libpango1.0-dev libcairo2-dev libgraphene-1.0-dev pkg-config poppler-utils"
             PKG_LABEL="Debian, Ubuntu, or derivative (Pop!_OS, Linux Mint, Zorin, etc.)"
             ;;
         fedora)
-            PKG_CMD="sudo dnf install gtk4-devel poppler-utils"
+            PKG_CMD="sudo dnf install -y gtk4-devel glib2-devel pango-devel cairo-gobject-devel graphene-devel pkgconf-pkg-config poppler-utils"
             PKG_LABEL="Fedora or derivative"
             ;;
         opensuse*|suse*)
-            PKG_CMD="sudo zypper install gtk4-devel poppler-tools"
+            PKG_CMD="sudo zypper install -y gtk4-devel glib2-devel pango-devel cairo-devel graphene-devel pkgconf poppler-tools"
             PKG_LABEL="openSUSE or derivative"
             ;;
     esac
@@ -98,17 +95,13 @@ if [ ${#MISSING_BUILD[@]} -gt 0 ] || [ ${#MISSING_RUNTIME[@]} -gt 0 ]; then
     else
         echo "Could not detect your distro from /etc/os-release."
         echo "Please install these dependencies manually, then re-run this script:"
-        echo "  - gtk4 development headers (including pango, gdk-pixbuf, cairo)"
+        echo "  - gtk4 development headers (including glib, pango, cairo, graphene)"
         echo "  - poppler-utils or poppler-tools (for pdftoppm)"
         echo "  - rustc and cargo (from https://rustup.rs)"
         echo ""
         read -rp "Press Enter after you have installed the dependencies (or Ctrl+C to abort)."
     fi
 fi
-
-# ------------------------------------------------------------------
-# Build and install
-# ------------------------------------------------------------------
 
 echo ""
 echo "Building Leaf..."
@@ -142,3 +135,4 @@ echo "Leaf installed to ${PREFIX}."
 echo "Run 'leaf --gui' or launch from your app menu."
 echo "For the CLI version, run 'leaf' in your terminal."
 echo "To uninstall: ./install.sh uninstall"
+

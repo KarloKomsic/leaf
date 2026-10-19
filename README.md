@@ -26,12 +26,12 @@ The install script handles these automatically for supported distros (see below)
 
 Supported distros and the packages the script will install:
 
-| Distro | Command |
-|--------|---------|
-| Arch or Arch derivative (EndeavourOS, CachyOS, Manjaro, etc.) | `sudo pacman -S --needed gtk4 poppler` |
-| Debian, Ubuntu, or derivative (Pop!_OS, Linux Mint, Zorin, etc.) | `sudo apt install libgtk-4-dev poppler-utils` |
-| Fedora or Fedora derivative | `sudo dnf install gtk4-devel poppler-utils` |
-| openSUSE (Tumbleweed, Leap) | `sudo zypper install gtk4-devel poppler-tools` |
+| Distro                                                           | Command                                        |
+| ---------------------------------------------------------------- | ---------------------------------------------- |
+| Arch or Arch derivative (EndeavourOS, CachyOS, Manjaro, etc.)    | `sudo pacman -S --needed gtk4 poppler`         |
+| Debian, Ubuntu, or derivative (Pop!_OS, Linux Mint, Zorin, etc.) | `sudo apt install libgtk-4-dev poppler-utils`  |
+| Fedora or Fedora derivative                                      | `sudo dnf install gtk4-devel poppler-utils`    |
+| openSUSE (Tumbleweed, Leap)                                      | `sudo zypper install gtk4-devel poppler-tools` |
 
 If your distro is not listed, the script will prompt you to install the dependencies manually before continuing.
 
@@ -40,7 +40,6 @@ If your distro is not listed, the script will prompt you to install the dependen
 ```sh
 git clone https://codeberg.org/KarloKomsic/leaf.git
 cd leaf
-cargo build --release
 ./install.sh           # user install (~/.local)
 sudo ./install.sh system  # system-wide install (/usr/local)
 ```
@@ -49,7 +48,6 @@ To uninstall: `./install.sh uninstall`
 
 **Usage**
 
-If you intend on running the application via the GUI (Graphical User Interface), you may simply go over to your app launcher of choice and launch the application from there, OR from the terminal, type in `leaf --gui`. 
+If you intend on running the application via the GUI (Graphical User Interface), you may simply go over to your app launcher of choice and launch the application from there, OR from the terminal, type in `leaf --gui`.
 
 For you terminal enjoyers out there (like myself), there is a CLI version of the application available. To launch it, simply go to your preferred terminal emulator and type in `leaf`.
-
